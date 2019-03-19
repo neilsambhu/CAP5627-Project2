@@ -13,11 +13,13 @@ from keras.callbacks import ModelCheckpoint
 from keras.callbacks import EarlyStopping
 from keras import regularizers
 from keras import applications
-from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D, Reshape
+from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D, Reshape, Conv2D
+from keras.layers.normalization import BatchNormalization
 from keras.preprocessing.image import ImageDataGenerator
 from keras import optimizers
 from keras.models import Sequential, Model 
 import sklearn
+from sklearn.metrics import confusion_matrix
 import datetime
 from tqdm import tqdm
 import fnmatch
@@ -64,7 +66,7 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
         return
     countBadImages = 0
     countBadFaces = 0
-#    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))[0:10]):
+#    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))[0:1000]):
     for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))):
         if file.endswith('.jpg'):
             path = os.path.join(directory, file)
@@ -96,7 +98,11 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
     #                    cv2.imwrite("Blur.jpg", faceBlur)
                         x.append(faceBlur)
                         y.append(label)
-    #                    return
+                        
+                        # augmented data: mirror and Gaussian Blur
+                        faceBlurMirror = gaussian_filter(faceMirror, sigma=0.5)
+                        x.append(faceBlurMirror)
+                        y.append(label)
                 else:
 #                    fileBadFaces.write(file + '\n')
                     countBadFaces += 1
@@ -129,11 +135,18 @@ def readImages(pathData):
     x_TrainPain, y_TrainPain = directorySearch(pathTrainPain, 1, 'Train Pain', dataAugmentation=True)
     verifyLength(x_TrainPain, y_TrainPain, 'x_TrainPain', 'y_TrainPain')
     # rebalance classes for training data
-#    print('Training pain shape\nx: {}\ny: {}'.format(np.asarray(x_TrainPain).shape, np.asarray(y_TrainPain).shape))
+#    print('Original Training pain shape\nx: {}\ny: {}'.format(np.asarray(x_TrainPain).shape, np.asarray(y_TrainPain).shape))
 #    print('Original training no pain shape\nx: {}\ny: {}'.format(np.asarray(x_TrainNoPain).shape, np.asarray(y_TrainNoPain).shape))
-    x_TrainNoPain, y_TrainNoPain = sklearn.utils.shuffle(x_TrainNoPain, y_TrainNoPain)
-    x_TrainNoPain, y_TrainNoPain = x_TrainNoPain[0:-11376], y_TrainNoPain[0:-11376]
+#    x_TrainNoPain, y_TrainNoPain = x_TrainNoPain[0:-11376], y_TrainNoPain[0:-11376]
 #    print('New training pain shape\nx: {}\ny: {}'.format(np.asarray(x_TrainNoPain).shape, np.asarray(y_TrainNoPain).shape))
+    # find which class has more
+    lenDiff = abs(len(x_TrainPain)-len(x_TrainNoPain))
+    if len(x_TrainPain) < len(x_TrainNoPain):
+        x_TrainNoPain, y_TrainNoPain = sklearn.utils.shuffle(x_TrainNoPain, y_TrainNoPain)
+        x_TrainNoPain, y_TrainNoPain = x_TrainNoPain[0:-lenDiff], y_TrainNoPain[0:-lenDiff]
+    else: 
+        x_TrainPain, y_TrainPain = sklearn.utils.shuffle(x_TrainPain, y_TrainPain)
+        x_TrainPain, y_TrainPain = x_TrainPain[0:-lenDiff], y_TrainPain[0:-lenDiff]
 
     # get val data
     pathValNoPain = '{}Validaiton/No_pain/'.format(pathData)
@@ -172,61 +185,65 @@ def find_files(base, pattern):
 
 def buildModel(pathBase):
     # create model
-#    model = keras.models.Sequential()
+    model = keras.models.Sequential()
 #    model = keras.applications.nasnet.NASNetLarge(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
-    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
+#    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
 #    from nasnet import NASNetLarge, NASNetMobile
 #    model = NASNetLarge(input_shape=(128, 128, 3), dropout=0.5)
 #    with tf.device('/cpu:0'):
 #        model = Xception(weights=None, input_shape=(256, 256, 3), classes=2)
 
 #    # 2 layers of convolution
-#    model.add(keras.layers.Conv2D(64, 3, activation='relu', input_shape=(128,128,3)))
-#    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(64, 3, activation='relu', input_shape=(128,128,3)))
+    model.add(keras.layers.BatchNormalization())
 #    # dropout
-##    model.add(keras.layers.Dropout(0.50))
-#    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
+#    model.add(keras.layers.Dropout(0.50))
+    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
 #    # dropout
 ##    model.add(keras.layers.Dropout(0.25))
 #    
-#    # max pooling
-#    model.add(keras.layers.MaxPooling2D())
-#    
-#    # 2 layers of convolution
-#    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    
-#    # max pooling
-#    model.add(keras.layers.MaxPooling2D())
-#    
-#    # 3 layers of convolution
-#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#
-#    # max pooling
-#    model.add(keras.layers.MaxPooling2D())
+    # max pooling
+    model.add(keras.layers.MaxPooling2D())
     
-#    # flatten
-#    model.add(keras.layers.Flatten())
-#    
-#    # fully connected layer
-#    model.add(keras.layers.Dense(2, activation='relu'))
-#    
-#    # dropout
-##    model.add(keras.layers.Dropout(0.5))
-#    
-#    # final dense layer
-#    model.add(keras.layers.Dense(1, activation='sigmoid', 
-##                                 kernel_regularizer=regularizers.l2(0.01), 
-##                                 activity_regularizer=regularizers.l1(0.01)
-#                                 ))    
+    # 2 layers of convolution
+    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    
+    # max pooling
+    model.add(keras.layers.MaxPooling2D())
+    
+    # 3 layers of convolution
+    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+
+    # max pooling
+    model.add(keras.layers.MaxPooling2D())
+    
+    # flatten
+    model.add(keras.layers.Flatten())
+    
+    # fully connected layer
+    model.add(keras.layers.Dense(2, activation='relu'))
+    
+    # dropout
+#    model.add(keras.layers.Dropout(0.5))
+    
+    # final dense layer
+    model.add(keras.layers.Dense(1, activation='sigmoid' 
+#                                 , kernel_regularizer=regularizers.l2(0.01)
+#                                 , activity_regularizer=regularizers.l1(0.01)
+                                 ))    
+    
+    # multiple GPUs
+    model = multi_gpu_model(model, gpus=16)
+    
     # resume from checkpoint
 #    savedModelFiles = find_files(pathBase, '2019-02-07--*.hdf5')
 #    if len(savedModelFiles) > 0:
@@ -236,31 +253,43 @@ def buildModel(pathBase):
 #        print("Resumed model's weights from {}".format(savedModelFiles[-1]))
 #        # load weights
 #        model.load_weights(os.path.join(pathBase, savedModelFiles[-1]))
-
-#    print('number of layers: {}'.format(len(model.layers)))
-#    for layer in model.layers[:14]:
-#    for layer in model.layers:
-#        layer.trainable=False
-##    #Adding custom Layers 
-##    model.add(keras.layers.Reshape(1,2))
-    x = model.output
-#    x = Reshape(1,2)(x)
-    x = Flatten()(x)
-#    x = Dense(1024, activation="relu")(x)
-#    x = Dropout(0.5)(x)
-#    x = Dense(1024, activation="relu")(x)
-#    x = Dropout(0.5)(x)
-    predictions = Dense(2, activation="softmax")(x)
-##    # creating the final model 
-    model = Model(inputs = model.input, outputs = predictions)
     
-    # multiple GPUs
-    model = multi_gpu_model(model, gpus=16)
     # compile
-#    model.compile(optimizer=keras.optimizers.Adam(lr=0.00001), loss=keras.losses.binary_crossentropy, metrics=['acc'])
-    model.compile(loss = "sparse_categorical_crossentropy", optimizer = optimizers.SGD(lr=0.0001, momentum=0.9), metrics=["accuracy"])
+    model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), loss=keras.losses.binary_crossentropy, metrics=['acc'])
     
     return model
+
+##    print('number of layers: {}'.format(len(model.layers)))
+##    for layer in model.layers[:14]:
+#    for layer in model.layers:
+#        layer.trainable=False
+###    #Adding custom Layers 
+#    x = model.output
+##    x = Conv2D(64, (3,3), activation='relu')(x)
+##    x = BatchNormalization()(x)
+##    x = Conv2D(64, (3,3), activation='relu')(x)
+##    x = BatchNormalization()(x)
+#    
+#    x = Flatten()(x)
+##    x = Dense(1024, activation="relu")(x)
+##    x = Dropout(0.5)(x)
+##    x = Dense(1024, activation="relu")(x)
+##    x = Dropout(0.5)(x)
+#    predictions = Dense(2, activation="softmax")(x)
+###    # creating the final model 
+#    model = Model(inputs = model.input, outputs = predictions)
+#    
+#    # multiple GPUs
+#    model = multi_gpu_model(model, gpus=16)
+#    # compile
+#    model.compile(
+##            loss = "sparse_categorical_crossentropy", 
+#            loss = 'binary_crossentropy', 
+##            optimizer = optimizers.SGD(lr=0.0001, momentum=0.9), 
+#            optimizer = 'rmsprop', 
+#            metrics=["accuracy"])
+#    
+#    return model
 
 if __name__ == "__main__":
     pathBase = 'pain_classification/'
@@ -269,14 +298,14 @@ if __name__ == "__main__":
     test_x, test_y, train_x, train_y, val_x, val_y = readImages(pathBase)
     print('Image reading finished at {}'.format(str(datetime.datetime.now())))
 
-#    print('Class balance started at {}'.format(str(datetime.datetime.now())))
-#    unique, counts = np.unique(test_y, return_counts=True)
-#    print('test_y: {}'.format(dict(zip(unique, counts))))
-#    unique, counts = np.unique(train_y, return_counts=True)
-#    print('train_y: {}'.format(dict(zip(unique, counts))))
-#    unique, counts = np.unique(val_y, return_counts=True)
-#    print('val_y: {}'.format(dict(zip(unique, counts))))
-#    print('Class balance finished at {}'.format(str(datetime.datetime.now())))
+    print('Class balance started at {}'.format(str(datetime.datetime.now())))
+    unique, counts = np.unique(test_y, return_counts=True)
+    print('test_y: {}'.format(dict(zip(unique, counts))))
+    unique, counts = np.unique(train_y, return_counts=True)
+    print('train_y: {}'.format(dict(zip(unique, counts))))
+    unique, counts = np.unique(val_y, return_counts=True)
+    print('val_y: {}'.format(dict(zip(unique, counts))))
+    print('Class balance finished at {}'.format(str(datetime.datetime.now())))
 # original split (with augmentation)
 #    test_y: {0: 1342, 1: 2536}
 #    train_y: {0: 34317, 1: 22941}
@@ -298,4 +327,7 @@ if __name__ == "__main__":
               validation_data=(val_x, val_y),
               initial_epoch=0)    
     print(model.evaluate(test_x, test_y))
+    test_y_prob = model.predict(test_x)
+    test_y_pred = test_y_prob.argmax(axis=-1)
+    print('Confusion matrix:\n{}'.format(confusion_matrix(test_y, test_y_pred)))
     print('Model evaluation finished at {}'.format(str(datetime.datetime.now())))
