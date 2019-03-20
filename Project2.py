@@ -230,10 +230,11 @@ def buildModel(pathBase):
     model.add(keras.layers.Flatten())
     
     # fully connected layer
-    model.add(keras.layers.Dense(1024, activation='relu'))
+#    model.add(keras.layers.Dense(1024, activation='relu'))
+#    model.add(keras.layers.Dense(1024, activation='relu'))
     
     # dropout
-#    model.add(keras.layers.Dropout(0.5))
+    model.add(keras.layers.Dropout(0.5))
 
 #    model.add(keras.layers.Dense(2, activation='relu'))
     
@@ -241,8 +242,8 @@ def buildModel(pathBase):
     model.add(keras.layers.Dense(2
 #                                 , activation='sigmoid' 
                                  , activation='softmax' 
-#                                 , kernel_regularizer=regularizers.l2(0.001)
-#                                 , activity_regularizer=regularizers.l1(0.001)
+                                 , kernel_regularizer=regularizers.l2(0.01)
+                                 , activity_regularizer=regularizers.l1(0.01)
                                  ))    
     
     # multiple GPUs
@@ -262,7 +263,9 @@ def buildModel(pathBase):
     model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), 
 #                  loss=keras.losses.binary_crossentropy, 
                   loss=keras.losses.sparse_categorical_crossentropy, 
-                  metrics=['acc'])
+                  metrics=['acc']
+#                  metrics=['acc', 'mean_squared_error', 'mean_absolute_error', 'mean_absolute_percentage_error', 'cosine_proximity']
+                  )
     
     return model
 
