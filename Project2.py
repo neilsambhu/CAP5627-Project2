@@ -13,11 +13,12 @@ from keras.callbacks import ModelCheckpoint
 from keras.callbacks import EarlyStopping
 from keras import regularizers
 from keras import applications
-from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D, Reshape, Conv2D
+from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D, Reshape, Conv2D, LSTM
 from keras.layers.normalization import BatchNormalization
 from keras.preprocessing.image import ImageDataGenerator
 from keras import optimizers
 from keras.models import Sequential, Model 
+from keras.layers import TimeDistributed
 import sklearn
 from sklearn.metrics import confusion_matrix
 import datetime
@@ -28,6 +29,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 import itertools
 from PIL import Image, ImageFilter
 from scipy.ndimage.filters import gaussian_filter
+from keras.preprocessing.image import ImageDataGenerator
 
 #detect face in image
 def DetectFace(cascade, image, scale_factor=1.1):
@@ -66,6 +68,7 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
         return
     countBadImages = 0
     countBadFaces = 0
+    img_gen = ImageDataGenerator()
 #    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))[0:1000]):
     for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))):
         if file.endswith('.jpg'):
@@ -80,11 +83,18 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
                 if faceDetected:
                     faceResized = cv2.resize(face, (128, 128), interpolation = cv2.INTER_AREA)
 #                    print(faceResized.shape)
-#                    cv2.imwrite("Original.jpg", faceResized)
+                    cv2.imwrite("Original.jpg", faceResized)
                     x.append(faceResized)
                     y.append(label)
                     
                     if dataAugmentation:
+#                        # augmented data: rotate
+#                        faceRotate = img_gen.apply_transform(faceResized, theta=15)
+#                        print(faceRotate.shape)
+#                        cv2.imwrite("Rotate.jpg", faceRotate)
+#                        x.append(faceRotate)
+#                        y.append(label)
+                        
                         # augmented data: mirror (vertical flip)
                         faceMirror = cv2.flip(faceResized, 1)
     #                    print(faceMirror.shape)
@@ -103,6 +113,7 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
                         faceBlurMirror = gaussian_filter(faceMirror, sigma=0.5)
                         x.append(faceBlurMirror)
                         y.append(label)
+#                    return
                 else:
 #                    fileBadFaces.write(file + '\n')
                     countBadFaces += 1
@@ -184,122 +195,126 @@ def find_files(base, pattern):
         os.path.isfile(os.path.join(base, n))]
 
 def buildModel(pathBase):
-    # create model
-    model = keras.models.Sequential()
-#    model = keras.applications.nasnet.NASNetLarge(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
-#    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
-#    from nasnet import NASNetLarge, NASNetMobile
-#    model = NASNetLarge(input_shape=(128, 128, 3), dropout=0.5)
-#    with tf.device('/cpu:0'):
-#        model = Xception(weights=None, input_shape=(256, 256, 3), classes=2)
-
+#    # create model
+#    model = keras.models.Sequential()
+##    model = keras.applications.nasnet.NASNetLarge(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
+    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
+#    model = keras.applications.nasnet.NASNetMobile(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
+##    from nasnet import NASNetLarge, NASNetMobile
+##    model = NASNetLarge(input_shape=(128, 128, 3), dropout=0.5)
+##    with tf.device('/cpu:0'):
+##        model = Xception(weights=None, input_shape=(256, 256, 3), classes=2)
+#
+##    # 2 layers of convolution
+#    model.add(keras.layers.Conv2D(64, 3, activation='relu', input_shape=(128,128,3)))
+#    model.add(keras.layers.BatchNormalization())
+##    # dropout
+##    model.add(keras.layers.Dropout(0.50))
+#    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+##    # dropout
+###    model.add(keras.layers.Dropout(0.25))
+##    
+#    # max pooling
+#    model.add(keras.layers.MaxPooling2D())
+#    
 #    # 2 layers of convolution
-    model.add(keras.layers.Conv2D(64, 3, activation='relu', input_shape=(128,128,3)))
-    model.add(keras.layers.BatchNormalization())
-#    # dropout
-#    model.add(keras.layers.Dropout(0.50))
-    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-#    # dropout
-##    model.add(keras.layers.Dropout(0.25))
+#    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+#    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
 #    
-    # max pooling
-    model.add(keras.layers.MaxPooling2D())
-    
-    # 2 layers of convolution
-    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-    
-    # max pooling
-    model.add(keras.layers.MaxPooling2D())
-    
-    # 3 layers of convolution
-    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-
-    # max pooling
-    model.add(keras.layers.MaxPooling2D())
-    
-    # flatten
-    model.add(keras.layers.Flatten())
-    
-    # fully connected layer
-#    model.add(keras.layers.Dense(1024, activation='relu'))
-#    model.add(keras.layers.Dense(1024, activation='relu'))
-    
-    # dropout
-    model.add(keras.layers.Dropout(0.5))
-
-#    model.add(keras.layers.Dense(2, activation='relu'))
-    
-    # final dense layer
-    model.add(keras.layers.Dense(2
-#                                 , activation='sigmoid' 
-                                 , activation='softmax' 
-                                 , kernel_regularizer=regularizers.l2(0.01)
-                                 , activity_regularizer=regularizers.l1(0.01)
-                                 ))    
-    
-    # multiple GPUs
-    model = multi_gpu_model(model, gpus=16)
-    
-    # resume from checkpoint
-#    savedModelFiles = find_files(pathBase, '2019-02-07--*.hdf5')
-#    if len(savedModelFiles) > 0:
-#        if len(savedModelFiles) > 1:
-#            print('Error: There are multiple saved model files.')
-#            return
-#        print("Resumed model's weights from {}".format(savedModelFiles[-1]))
-#        # load weights
-#        model.load_weights(os.path.join(pathBase, savedModelFiles[-1]))
-    
-    # compile
-    model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), 
-#                  loss=keras.losses.binary_crossentropy, 
-                  loss=keras.losses.sparse_categorical_crossentropy, 
-                  metrics=['acc']
-#                  metrics=['acc', 'mean_squared_error', 'mean_absolute_error', 'mean_absolute_percentage_error', 'cosine_proximity']
-                  )
-    
-    return model
-
-##    print('number of layers: {}'.format(len(model.layers)))
-##    for layer in model.layers[:14]:
-#    for layer in model.layers:
-#        layer.trainable=False
-###    #Adding custom Layers 
-#    x = model.output
-##    x = Conv2D(64, (3,3), activation='relu')(x)
-##    x = BatchNormalization()(x)
-##    x = Conv2D(64, (3,3), activation='relu')(x)
-##    x = BatchNormalization()(x)
+#    # max pooling
+#    model.add(keras.layers.MaxPooling2D())
 #    
-#    x = Flatten()(x)
-##    x = Dense(1024, activation="relu")(x)
-##    x = Dropout(0.5)(x)
-##    x = Dense(1024, activation="relu")(x)
-##    x = Dropout(0.5)(x)
-#    predictions = Dense(2, activation="softmax")(x)
-###    # creating the final model 
-#    model = Model(inputs = model.input, outputs = predictions)
+#    # 3 layers of convolution
+#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+##    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+##    model.add(keras.layers.BatchNormalization())
+##    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+##    model.add(keras.layers.BatchNormalization())
+#
+#    # max pooling
+#    model.add(keras.layers.MaxPooling2D())
+#    
+#    # flatten
+#    model.add(keras.layers.Flatten())
+#    
+#    # fully connected layer
+##    model.add(keras.layers.Dense(1024, activation='relu'))
+##    model.add(keras.layers.Dense(1024, activation='relu'))
+#    
+#    # dropout
+#    model.add(keras.layers.Dropout(0.5))
+#
+##    model.add(keras.layers.Dense(2, activation='relu'))
+#    
+#    # final dense layer
+#    model.add(keras.layers.Dense(2
+##                                 , activation='sigmoid' 
+#                                 , activation='softmax' 
+#                                 , kernel_regularizer=regularizers.l2(0.01)
+#                                 , activity_regularizer=regularizers.l1(0.01)
+#                                 ))    
 #    
 #    # multiple GPUs
 #    model = multi_gpu_model(model, gpus=16)
+#    
+#    # resume from checkpoint
+##    savedModelFiles = find_files(pathBase, '2019-02-07--*.hdf5')
+##    if len(savedModelFiles) > 0:
+##        if len(savedModelFiles) > 1:
+##            print('Error: There are multiple saved model files.')
+##            return
+##        print("Resumed model's weights from {}".format(savedModelFiles[-1]))
+##        # load weights
+##        model.load_weights(os.path.join(pathBase, savedModelFiles[-1]))
+#    
 #    # compile
-#    model.compile(
-##            loss = "sparse_categorical_crossentropy", 
-#            loss = 'binary_crossentropy', 
-##            optimizer = optimizers.SGD(lr=0.0001, momentum=0.9), 
-#            optimizer = 'rmsprop', 
-#            metrics=["accuracy"])
+#    model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), 
+##                  loss=keras.losses.binary_crossentropy, 
+#                  loss=keras.losses.sparse_categorical_crossentropy, 
+#                  metrics=['acc']
+##                  metrics=['acc', 'mean_squared_error', 'mean_absolute_error', 'mean_absolute_percentage_error', 'cosine_proximity']
+#                  )
 #    
 #    return model
+
+    print('number of layers: {}'.format(len(model.layers)))
+#    model.summary()
+#    for layer in model.layers[:96]:
+    for layer in model.layers:
+        layer.trainable=False
+##    #Adding custom Layers 
+    x = model.output
+#    x = Conv2D(64, (3,3), activation='relu')(x)
+#    x = BatchNormalization()(x)
+#    x = Conv2D(64, (3,3), activation='relu')(x)
+#    x = BatchNormalization()(x)
+    
+    x = TimeDistributed(Flatten())(x)
+
+#    x = LSTM(64)(x)
+#    x = Dense(1024, activation="relu")(x)
+#    x = Dropout(0.5)(x)
+#    x = Dense(1024, activation="relu")(x)
+#    x = Dropout(0.5)(x)
+    predictions = TimeDistributed(Dense(2, activation="softmax"))(x)
+##    # creating the final model 
+    model = Model(inputs = model.input, outputs = predictions)
+    
+    # multiple GPUs
+    model = multi_gpu_model(model, gpus=16)
+    # compile
+    model.compile(
+            loss = "sparse_categorical_crossentropy", 
+#            loss = 'binary_crossentropy',
+#            optimizer = optimizers.SGD(lr=0.0001, momentum=0.9), 
+            optimizer = 'rmsprop', 
+            metrics=["accuracy"])
+    
+    return model
 
 if __name__ == "__main__":
     pathBase = 'pain_classification/'
@@ -316,10 +331,6 @@ if __name__ == "__main__":
     unique, counts = np.unique(val_y, return_counts=True)
     print('val_y: {}'.format(dict(zip(unique, counts))))
     print('Class balance finished at {}'.format(str(datetime.datetime.now())))
-# original split (with augmentation)
-#    test_y: {0: 1342, 1: 2536}
-#    train_y: {0: 34317, 1: 22941}
-#    val_y: {0: 2912, 1: 2331}
 
     print('Model building started at {}'.format(str(datetime.datetime.now())))
     model = buildModel(pathBase)
@@ -329,10 +340,10 @@ if __name__ == "__main__":
     # fit model to data
     time = strftime("%Y-%m-%d--%H-%M-%S", gmtime())
     checkpoint = ModelCheckpoint('{0}{1}_{{epoch:02d}}-{{val_acc:.2f}}.hdf5'.format(pathBase, time), 
-								 monitor='val_loss', verbose=1, save_best_only=True, mode='max')
-    earlyStop = EarlyStopping('val_loss',0.001,5)
+								 monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+    earlyStop = EarlyStopping('val_acc',0.001,5)
     callbacks_list = [checkpoint, earlyStop]
-    model.fit(x=train_x, y=train_y, batch_size=64, epochs=10, verbose=2, 
+    model.fit(x=train_x, y=train_y, batch_size=64, epochs=1, verbose=2, 
               callbacks=callbacks_list,
               validation_data=(val_x, val_y),
               initial_epoch=0)    
