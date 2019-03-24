@@ -13,7 +13,7 @@ from keras.callbacks import ModelCheckpoint
 from keras.callbacks import EarlyStopping
 from keras import regularizers
 from keras import applications
-from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D, Reshape, Conv2D, LSTM
+from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D, Reshape, Conv2D, LSTM, Input, Lambda
 from keras.layers.normalization import BatchNormalization
 from keras.preprocessing.image import ImageDataGenerator
 from keras import optimizers
@@ -69,8 +69,8 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
     countBadImages = 0
     countBadFaces = 0
     img_gen = ImageDataGenerator()
-#    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))[0:1000]):
-    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))):
+    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))[0:100]):
+#    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))):
         if file.endswith('.jpg'):
             path = os.path.join(directory, file)
             img = cv2.imread(path)
@@ -83,7 +83,7 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
                 if faceDetected:
                     faceResized = cv2.resize(face, (128, 128), interpolation = cv2.INTER_AREA)
 #                    print(faceResized.shape)
-                    cv2.imwrite("Original.jpg", faceResized)
+#                    cv2.imwrite("Original.jpg", faceResized)
                     x.append(faceResized)
                     y.append(label)
                     
@@ -195,83 +195,83 @@ def find_files(base, pattern):
         os.path.isfile(os.path.join(base, n))]
 
 def buildModel(pathBase):
-#    # create model
+#     create model
 #    model = keras.models.Sequential()
-##    model = keras.applications.nasnet.NASNetLarge(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
-    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
-#    model = keras.applications.nasnet.NASNetMobile(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
-##    from nasnet import NASNetLarge, NASNetMobile
-##    model = NASNetLarge(input_shape=(128, 128, 3), dropout=0.5)
-##    with tf.device('/cpu:0'):
-##        model = Xception(weights=None, input_shape=(256, 256, 3), classes=2)
-#
-##    # 2 layers of convolution
+
+#     2 layers of convolution
+#    model.add
 #    model.add(keras.layers.Conv2D(64, 3, activation='relu', input_shape=(128,128,3)))
 #    model.add(keras.layers.BatchNormalization())
-##    # dropout
-##    model.add(keras.layers.Dropout(0.50))
+#     dropout
+#    model.add(keras.layers.Dropout(0.50))
 #    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
 #    model.add(keras.layers.BatchNormalization())
-##    # dropout
-###    model.add(keras.layers.Dropout(0.25))
-##    
-#    # max pooling
+    # dropout
+#    model.add(keras.layers.Dropout(0.25))
+    
+#     max pooling
 #    model.add(keras.layers.MaxPooling2D())
-#    
-#    # 2 layers of convolution
+    
+#     2 layers of convolution
 #    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
 #    model.add(keras.layers.BatchNormalization())
 #    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
 #    model.add(keras.layers.BatchNormalization())
-#    
-#    # max pooling
+    
+#     max pooling
 #    model.add(keras.layers.MaxPooling2D())
-#    
-#    # 3 layers of convolution
+    
+#     3 layers of convolution
 #    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
 #    model.add(keras.layers.BatchNormalization())
-##    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-##    model.add(keras.layers.BatchNormalization())
-##    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-##    model.add(keras.layers.BatchNormalization())
-#
-#    # max pooling
+#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+
+#     max pooling
 #    model.add(keras.layers.MaxPooling2D())
-#    
-#    # flatten
+
+    # ConvLSTM2D
+#    model.add(keras.layers.ConvLSTM2D(64, 3, activation='relu'))
+#     flatten
 #    model.add(keras.layers.Flatten())
-#    
-#    # fully connected layer
-##    model.add(keras.layers.Dense(1024, activation='relu'))
-##    model.add(keras.layers.Dense(1024, activation='relu'))
-#    
-#    # dropout
-#    model.add(keras.layers.Dropout(0.5))
 #
-##    model.add(keras.layers.Dense(2, activation='relu'))
-#    
-#    # final dense layer
+#    model.summary()
+#    # LSTM
+#    model.add(LSTM(64, input_shape=(1016064,1), return_sequences=True))
+    
+    # fully connected layer
+#    model.add(keras.layers.Dense(1024, activation='relu'))
+#    model.add(keras.layers.Dense(1024, activation='relu'))
+    
+    # dropout
+#    model.add(keras.layers.Dropout(0.5))
+
+#    model.add(keras.layers.Dense(2, activation='relu'))
+    
+    # final dense layer
 #    model.add(keras.layers.Dense(2
 ##                                 , activation='sigmoid' 
 #                                 , activation='softmax' 
-#                                 , kernel_regularizer=regularizers.l2(0.01)
-#                                 , activity_regularizer=regularizers.l1(0.01)
+##                                 , kernel_regularizer=regularizers.l2(0.01)
+##                                 , activity_regularizer=regularizers.l1(0.01)
 #                                 ))    
-#    
-#    # multiple GPUs
+    
+    # resume from checkpoint
+#    savedModelFiles = find_files(pathBase, '2019-02-07--*.hdf5')
+#    if len(savedModelFiles) > 0:
+#        if len(savedModelFiles) > 1:
+#            print('Error: There are multiple saved model files.')
+#            return
+#        print("Resumed model's weights from {}".format(savedModelFiles[-1]))
+#        # load weights
+#        model.load_weights(os.path.join(pathBase, savedModelFiles[-1]))
+            
+    # multiple GPUs
 #    model = multi_gpu_model(model, gpus=16)
-#    
-#    # resume from checkpoint
-##    savedModelFiles = find_files(pathBase, '2019-02-07--*.hdf5')
-##    if len(savedModelFiles) > 0:
-##        if len(savedModelFiles) > 1:
-##            print('Error: There are multiple saved model files.')
-##            return
-##        print("Resumed model's weights from {}".format(savedModelFiles[-1]))
-##        # load weights
-##        model.load_weights(os.path.join(pathBase, savedModelFiles[-1]))
-#    
-#    # compile
+    
+    # compile
 #    model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), 
 ##                  loss=keras.losses.binary_crossentropy, 
 #                  loss=keras.losses.sparse_categorical_crossentropy, 
@@ -281,31 +281,49 @@ def buildModel(pathBase):
 #    
 #    return model
 
-    print('number of layers: {}'.format(len(model.layers)))
-#    model.summary()
-#    for layer in model.layers[:96]:
-    for layer in model.layers:
-        layer.trainable=False
-##    #Adding custom Layers 
-    x = model.output
-#    x = Conv2D(64, (3,3), activation='relu')(x)
-#    x = BatchNormalization()(x)
-#    x = Conv2D(64, (3,3), activation='relu')(x)
-#    x = BatchNormalization()(x)
+    model = Sequential()
+    x_input = Input(shape=(128, 128, 3))
+    x_output = Conv2D(filters=64, kernel_size=3, activation='relu')(x_input)
+    base_model = Model(x_input, x_output)
+    model.add(TimeDistributed(base_model, input_shape=base_model.input_shape))
+    model.add(TimeDistributed(Flatten(input_shape=base_model.input_shape[1:])))
+    model.add(LSTM(2, activation='relu', recurrent_activation='hard_sigmoid', dropout=0.2))
+#    model.add(LSTM(64, return_sequences=True))
+    model.add(Dense(2, activation='softmax'))
+##    model = keras.applications.nasnet.NASNetLarge(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
+##    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
+#    model = keras.applications.vgg16.VGG16(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
+#    print('number of layers: {}'.format(len(model.layers)))
+    model.summary()
+##    for layer in model.layers[:96]:
+#    for layer in model.layers:
+#        layer.trainable=False
+###    #Adding custom Layers 
+#    x = model.output
+##    x = Conv2D(64, (3,3), activation='relu')(x)
+##    x = BatchNormalization()(x)
+##    x = Conv2D(64, (3,3), activation='relu')(x)
+##    x = BatchNormalization()(x)
+#    
+#    x = Flatten()(x)
+#    
+#    input_lay = Input(shape=(None, 128, 128, 3)) #dimensions of your data
+#    time_distribute = TimeDistributed(Lambda(lambda a: model(a)))(input_lay) # keras.layers.Lambda is essential to make our trick work :)
+#    lstm_lay = LSTM(4)(time_distribute)
+#    output_lay = Dense(2, activation='softmax')(lstm_lay)
     
-    x = TimeDistributed(Flatten())(x)
-
 #    x = LSTM(64)(x)
 #    x = Dense(1024, activation="relu")(x)
 #    x = Dropout(0.5)(x)
 #    x = Dense(1024, activation="relu")(x)
 #    x = Dropout(0.5)(x)
-    predictions = TimeDistributed(Dense(2, activation="softmax"))(x)
+#    predictions = TimeDistributed(Dense(2, activation="softmax"))(x)
 ##    # creating the final model 
-    model = Model(inputs = model.input, outputs = predictions)
+#    model = Model(inputs = model.input, outputs = predictions)
+#    model = Model(inputs=[input_lay], outputs=[output_lay])
     
     # multiple GPUs
-    model = multi_gpu_model(model, gpus=16)
+#    model = multi_gpu_model(model, gpus=16)
     # compile
     model.compile(
             loss = "sparse_categorical_crossentropy", 
@@ -343,7 +361,7 @@ if __name__ == "__main__":
 								 monitor='val_acc', verbose=1, save_best_only=True, mode='max')
     earlyStop = EarlyStopping('val_acc',0.001,5)
     callbacks_list = [checkpoint, earlyStop]
-    model.fit(x=train_x, y=train_y, batch_size=64, epochs=1, verbose=2, 
+    model.fit(x=train_x, y=train_y, batch_size=1, epochs=1, verbose=2, 
               callbacks=callbacks_list,
               validation_data=(val_x, val_y),
               initial_epoch=0)    
