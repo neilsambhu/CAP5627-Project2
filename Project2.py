@@ -196,12 +196,11 @@ def find_files(base, pattern):
 
 def buildModel(pathBase):
 #     create model
-#    model = keras.models.Sequential()
+    model = keras.models.Sequential()
 
 #     2 layers of convolution
-#    model.add
-#    model.add(keras.layers.Conv2D(64, 3, activation='relu', input_shape=(128,128,3)))
-#    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(8, 3, activation='relu', input_shape=(128,128,3)))
+    model.add(keras.layers.BatchNormalization())
 #     dropout
 #    model.add(keras.layers.Dropout(0.50))
 #    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
@@ -235,7 +234,7 @@ def buildModel(pathBase):
     # ConvLSTM2D
 #    model.add(keras.layers.ConvLSTM2D(64, 3, activation='relu'))
 #     flatten
-#    model.add(keras.layers.Flatten())
+    model.add(keras.layers.Flatten())
 #
 #    model.summary()
 #    # LSTM
@@ -251,12 +250,14 @@ def buildModel(pathBase):
 #    model.add(keras.layers.Dense(2, activation='relu'))
     
     # final dense layer
-#    model.add(keras.layers.Dense(2
-##                                 , activation='sigmoid' 
-#                                 , activation='softmax' 
-##                                 , kernel_regularizer=regularizers.l2(0.01)
-##                                 , activity_regularizer=regularizers.l1(0.01)
-#                                 ))    
+    model.add(keras.layers.Dense(
+#            1
+            2
+#                                 , activation='sigmoid' 
+                                 , activation='softmax' 
+#                                 , kernel_regularizer=regularizers.l2(0.01)
+#                                 , activity_regularizer=regularizers.l1(0.01)
+                                 ))    
     
     # resume from checkpoint
 #    savedModelFiles = find_files(pathBase, '2019-02-07--*.hdf5')
@@ -300,34 +301,35 @@ def buildModel(pathBase):
 #        layer.trainable=False
 ###    #Adding custom Layers 
     
-    input = Input((128,128,3))
-    x = Conv2D(filters=64, kernel_size=3, activation='relu')(input)
-    x = BatchNormalization()(x)
-    x = Conv2D(filters=64, kernel_size=3, activation='relu')(x)
-    x = BatchNormalization()(x)
-    x = MaxPooling2D()(x)
-    
-    x = Conv2D(filters=128, kernel_size=3, activation='relu')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(filters=128, kernel_size=3, activation='relu')(x)
-    x = BatchNormalization()(x)
-    x = MaxPooling2D()(x)
-    
-    x = Conv2D(filters=256, kernel_size=3, activation='relu')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(filters=256, kernel_size=3, activation='relu')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(filters=256, kernel_size=3, activation='relu')(x)
-    x = BatchNormalization()(x)
-    x = MaxPooling2D()(x)
-    
-    x = Flatten()(x)
-#    x = Reshape((1, 127008//8))(x)
-    x = Reshape((1, 30976))(x)
-    x = LSTM(1024)(x)
+#    input = Input((128,128,3))
+#    x = Conv2D(filters=8, kernel_size=3, activation='relu')(input)
+#    x = BatchNormalization()(x)
+#    x = Conv2D(filters=64, kernel_size=3, activation='relu')(x)
+#    x = BatchNormalization()(x)
+#    x = MaxPooling2D()(x)
+#    
+#    x = Conv2D(filters=128, kernel_size=3, activation='relu')(x)
+#    x = BatchNormalization()(x)
+#    x = Conv2D(filters=128, kernel_size=3, activation='relu')(x)
+#    x = BatchNormalization()(x)
+#    x = MaxPooling2D()(x)
+#    
+#    x = Conv2D(filters=256, kernel_size=3, activation='relu')(x)
+#    x = BatchNormalization()(x)
+#    x = Conv2D(filters=256, kernel_size=3, activation='relu')(x)
+#    x = BatchNormalization()(x)
+#    x = Conv2D(filters=256, kernel_size=3, activation='relu')(x)
+#    x = BatchNormalization()(x)
+#    x = MaxPooling2D()(x)
+#    
+#    x = Flatten()(x)
+#    x = Dense(1024, activation="relu")(x)
+##    x = Reshape((1, 127008//8))(x)
+#    x = Reshape((1, 30976))(x)
+#    x = LSTM(1024)(x)
 #    output = Dense(2, activation='softmax')(x)
-    output = Dense(1, activation='sigmoid')(x)
-    model = Model(input, output)
+#    output = Dense(1, activation='sigmoid')(x)
+#    model = Model(input, output)
     model.summary()
 #    x = model.output
 ##    x = Conv2D(64, (3,3), activation='relu')(x)
@@ -356,15 +358,15 @@ def buildModel(pathBase):
     model = multi_gpu_model(model, gpus=16)
     # compileì
     model.compile(
-#            loss = "sparse_categorical_crossentropy", 
-            loss = 'binary_crossentropy',
+            loss = "sparse_categorical_crossentropy", 
+#            loss = 'binary_crossentropy',
 #            optimizer = optimizers.SGD(lr=0.0001, momentum=0.9), 
 #            optimizer = 'rmsprop', 
             optimizer=keras.optimizers.Adam(lr=0.0001),
             metrics=["accuracy"])
     
     return model
-
+    
 if __name__ == "__main__":
     pathBase = 'pain_classification/'
     
@@ -392,12 +394,13 @@ if __name__ == "__main__":
 								 monitor='val_acc', verbose=1, save_best_only=True, mode='max')
     earlyStop = EarlyStopping('val_acc',0.001,5)
     callbacks_list = [checkpoint, earlyStop]
-    model.fit(x=train_x, y=train_y, batch_size=32, epochs=10, verbose=2, 
+    model.fit(x=train_x, y=train_y, batch_size=64, epochs=10, verbose=2, 
               callbacks=callbacks_list,
               validation_data=(val_x, val_y),
               initial_epoch=0)    
     print(model.evaluate(test_x, test_y))
     test_y_prob = model.predict(test_x)
-    test_y_pred = np.round(test_y_prob)
+#    test_y_pred = np.round(test_y_prob)
+    test_y_pred = np.argmax(test_y_prob, axis=-1)
     print('Confusion matrix:\n{}'.format(confusion_matrix(test_y, test_y_pred)))
     print('Model evaluation finished at {}'.format(str(datetime.datetime.now())))
