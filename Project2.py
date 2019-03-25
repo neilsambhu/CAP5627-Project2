@@ -82,38 +82,43 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
                 face, faceDetected = DetectFace(face_cascade, img)
                 if faceDetected:
                     faceResized = cv2.resize(face, (128, 128), interpolation = cv2.INTER_AREA)
-#                    print(faceResized.shape)
-#                    cv2.imwrite("Original.jpg", faceResized)
+                    print(faceResized.shape)
+                    cv2.imwrite("Original.jpg", faceResized)
                     x.append(faceResized)
                     y.append(label)
                     
                     if dataAugmentation:
+                        # transformation types
+#                        transformations = [
+#                                {'theta':-15},
+#                                
+#                                ]
 #                        # augmented data: rotate
-#                        faceRotate = img_gen.apply_transform(faceResized, theta=15)
-#                        print(faceRotate.shape)
-#                        cv2.imwrite("Rotate.jpg", faceRotate)
+                        faceRotate = img_gen.apply_transform(faceResized, {'theta':-15, 'flip_horizontal':True})
+                        print(faceRotate.shape)
+                        cv2.imwrite("Rotate.jpg", faceRotate)
 #                        x.append(faceRotate)
 #                        y.append(label)
                         
                         # augmented data: mirror (vertical flip)
-                        faceMirror = cv2.flip(faceResized, 1)
+#                        faceMirror = cv2.flip(faceResized, 1)
     #                    print(faceMirror.shape)
     #                    cv2.imwrite("Mirror.jpg", faceMirror)
-                        x.append(faceMirror)
-                        y.append(label)
+#                        x.append(faceMirror)
+#                        y.append(label)
                     
                         # augmented data: Gaussian Blur
-                        faceBlur = gaussian_filter(faceResized, sigma=0.5)
+#                        faceBlur = gaussian_filter(faceResized, sigma=0.5)
     #                    print(faceBlur.shape)
     #                    cv2.imwrite("Blur.jpg", faceBlur)
-                        x.append(faceBlur)
-                        y.append(label)
+#                        x.append(faceBlur)
+#                        y.append(label)
                         
                         # augmented data: mirror and Gaussian Blur
-                        faceBlurMirror = gaussian_filter(faceMirror, sigma=0.5)
-                        x.append(faceBlurMirror)
-                        y.append(label)
-#                    return
+#                        faceBlurMirror = gaussian_filter(faceMirror, sigma=0.5)
+#                        x.append(faceBlurMirror)
+#                        y.append(label)
+                        return
                 else:
 #                    fileBadFaces.write(file + '\n')
                     countBadFaces += 1
