@@ -13,7 +13,7 @@ from keras.callbacks import ModelCheckpoint
 from keras.callbacks import EarlyStopping
 from keras import regularizers
 from keras import applications
-from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D, Reshape, Conv2D, LSTM, Input, Lambda
+from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D, Reshape, Conv2D, LSTM, Input, Lambda, MaxPooling2D
 from keras.layers.normalization import BatchNormalization
 from keras.preprocessing.image import ImageDataGenerator
 from keras import optimizers
@@ -69,8 +69,8 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
     countBadImages = 0
     countBadFaces = 0
     img_gen = ImageDataGenerator()
-    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))[0:100]):
-#    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))):
+#    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))[0:100]):
+    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))):
         if file.endswith('.jpg'):
             path = os.path.join(directory, file)
             img = cv2.imread(path)
@@ -281,24 +281,54 @@ def buildModel(pathBase):
 #    
 #    return model
 
-    model = Sequential()
-    x_input = Input(shape=(128, 128, 3))
-    x_output = Conv2D(filters=64, kernel_size=3, activation='relu')(x_input)
-    base_model = Model(x_input, x_output)
-    model.add(TimeDistributed(base_model, input_shape=base_model.input_shape))
-    model.add(TimeDistributed(Flatten(input_shape=base_model.input_shape[1:])))
-    model.add(LSTM(2, activation='relu', recurrent_activation='hard_sigmoid', dropout=0.2))
+#    model = Sequential()
+#    x_input = Input(shape=(128, 128, 3))
+#    x_output = Conv2D(filters=64, kernel_size=3, activation='relu')(x_input)
+#    base_model = Model(x_input, x_output)
+#    model.add(TimeDistributed(base_model, input_shape=base_model.input_shape))
+#    model.add(TimeDistributed(Flatten(input_shape=base_model.input_shape[1:])))
+#    model.add(LSTM(2, activation='relu', recurrent_activation='hard_sigmoid', dropout=0.2))
 #    model.add(LSTM(64, return_sequences=True))
-    model.add(Dense(2, activation='softmax'))
+#    model.add(Dense(2, activation='softmax'))
 ##    model = keras.applications.nasnet.NASNetLarge(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
 ##    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
 #    model = keras.applications.vgg16.VGG16(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
 #    print('number of layers: {}'.format(len(model.layers)))
-    model.summary()
+#    model.summary()
 ##    for layer in model.layers[:96]:
 #    for layer in model.layers:
 #        layer.trainable=False
 ###    #Adding custom Layers 
+    
+    input = Input((128,128,3))
+    x = Conv2D(filters=64, kernel_size=3, activation='relu')(input)
+    x = BatchNormalization()(x)
+    x = Conv2D(filters=64, kernel_size=3, activation='relu')(x)
+    x = BatchNormalization()(x)
+    x = MaxPooling2D()(x)
+    
+    x = Conv2D(filters=128, kernel_size=3, activation='relu')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(filters=128, kernel_size=3, activation='relu')(x)
+    x = BatchNormalization()(x)
+    x = MaxPooling2D()(x)
+    
+    x = Conv2D(filters=256, kernel_size=3, activation='relu')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(filters=256, kernel_size=3, activation='relu')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(filters=256, kernel_size=3, activation='relu')(x)
+    x = BatchNormalization()(x)
+    x = MaxPooling2D()(x)
+    
+    x = Flatten()(x)
+#    x = Reshape((1, 127008//8))(x)
+    x = Reshape((1, 30976))(x)
+    x = LSTM(1024)(x)
+#    output = Dense(2, activation='softmax')(x)
+    output = Dense(1, activation='sigmoid')(x)
+    model = Model(input, output)
+    model.summary()
 #    x = model.output
 ##    x = Conv2D(64, (3,3), activation='relu')(x)
 ##    x = BatchNormalization()(x)
@@ -322,14 +352,15 @@ def buildModel(pathBase):
 #    model = Model(inputs = model.input, outputs = predictions)
 #    model = Model(inputs=[input_lay], outputs=[output_lay])
     
-    # multiple GPUs
-#    model = multi_gpu_model(model, gpus=16)
-    # compile
+#     multiple GPUs
+    model = multi_gpu_model(model, gpus=16)
+    # compileì
     model.compile(
-            loss = "sparse_categorical_crossentropy", 
-#            loss = 'binary_crossentropy',
+#            loss = "sparse_categorical_crossentropy", 
+            loss = 'binary_crossentropy',
 #            optimizer = optimizers.SGD(lr=0.0001, momentum=0.9), 
-            optimizer = 'rmsprop', 
+#            optimizer = 'rmsprop', 
+            optimizer=keras.optimizers.Adam(lr=0.0001),
             metrics=["accuracy"])
     
     return model
@@ -361,12 +392,12 @@ if __name__ == "__main__":
 								 monitor='val_acc', verbose=1, save_best_only=True, mode='max')
     earlyStop = EarlyStopping('val_acc',0.001,5)
     callbacks_list = [checkpoint, earlyStop]
-    model.fit(x=train_x, y=train_y, batch_size=1, epochs=1, verbose=2, 
+    model.fit(x=train_x, y=train_y, batch_size=32, epochs=10, verbose=2, 
               callbacks=callbacks_list,
               validation_data=(val_x, val_y),
               initial_epoch=0)    
     print(model.evaluate(test_x, test_y))
     test_y_prob = model.predict(test_x)
-    test_y_pred = test_y_prob.argmax(axis=-1)
+    test_y_pred = np.round(test_y_prob)
     print('Confusion matrix:\n{}'.format(confusion_matrix(test_y, test_y_pred)))
     print('Model evaluation finished at {}'.format(str(datetime.datetime.now())))
