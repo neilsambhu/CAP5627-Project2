@@ -82,21 +82,28 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
                 face, faceDetected = DetectFace(face_cascade, img)
                 if faceDetected:
                     faceResized = cv2.resize(face, (128, 128), interpolation = cv2.INTER_AREA)
-                    print(faceResized.shape)
-                    cv2.imwrite("Original.jpg", faceResized)
+#                    print(faceResized.shape)
+#                    cv2.imwrite("Original.jpg", faceResized)
                     x.append(faceResized)
                     y.append(label)
                     
                     if dataAugmentation:
                         # transformation types
-#                        transformations = [
-#                                {'theta':-15},
-#                                
-#                                ]
+                        for theta_input in [-15,-10,-5,0,5,10,15]:
+#                            for flip_horizontal_input in [False, True]:
+                            for flip_horizontal_input in [False]:
+                                for flip_vertical_input in [False, True]:
+#                                    for channel_shift_intencity_input in [-100,0,100]:
+                                    for channel_shift_intencity_input in [0]:
+                                        faceTransform = img_gen.apply_transform(faceResized,{'theta':theta_input,'flip_horizontal':flip_horizontal_input,'flip_vertical':flip_vertical_input,'channel_shift_intencity':channel_shift_intencity_input})
+                                        x.append(faceTransform)
+                                        y.append(label)
+#                        print(faceRotate.shape)
+#                        cv2.imwrite("Rotate.jpg", faceRotate)
 #                        # augmented data: rotate
-                        faceRotate = img_gen.apply_transform(faceResized, {'theta':-15, 'flip_horizontal':True})
-                        print(faceRotate.shape)
-                        cv2.imwrite("Rotate.jpg", faceRotate)
+#                        faceRotate = img_gen.apply_transform(faceResized, {'channel_shift_intencity':-100})
+#                        print(faceRotate.shape)
+#                        cv2.imwrite("Rotate.jpg", faceRotate)
 #                        x.append(faceRotate)
 #                        y.append(label)
                         
@@ -118,7 +125,7 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
 #                        faceBlurMirror = gaussian_filter(faceMirror, sigma=0.5)
 #                        x.append(faceBlurMirror)
 #                        y.append(label)
-                        return
+#                        return
                 else:
 #                    fileBadFaces.write(file + '\n')
                     countBadFaces += 1
@@ -145,10 +152,10 @@ def readImages(pathData):
 
     # get train data
     pathTrainNoPain = '{}Training/No_pain/'.format(pathData)
-    x_TrainNoPain, y_TrainNoPain = directorySearch(pathTrainNoPain, 0, 'Train No Pain', dataAugmentation=True)
+    x_TrainNoPain, y_TrainNoPain = directorySearch(pathTrainNoPain, 0, 'Train No Pain', dataAugmentation=False)
     verifyLength(x_TrainNoPain, y_TrainNoPain, 'x_TrainNoPain', 'y_TrainNoPain')
     pathTrainPain = '{}Training/Pain/'.format(pathData)
-    x_TrainPain, y_TrainPain = directorySearch(pathTrainPain, 1, 'Train Pain', dataAugmentation=True)
+    x_TrainPain, y_TrainPain = directorySearch(pathTrainPain, 1, 'Train Pain', dataAugmentation=False)
     verifyLength(x_TrainPain, y_TrainPain, 'x_TrainPain', 'y_TrainPain')
     # rebalance classes for training data
 #    print('Original Training pain shape\nx: {}\ny: {}'.format(np.asarray(x_TrainPain).shape, np.asarray(y_TrainPain).shape))
@@ -201,11 +208,11 @@ def find_files(base, pattern):
 
 def buildModel(pathBase):
 #     create model
-    model = keras.models.Sequential()
+#    model = keras.models.Sequential()
 
 #     2 layers of convolution
-    model.add(keras.layers.Conv2D(8, 3, activation='relu', input_shape=(128,128,3)))
-    model.add(keras.layers.BatchNormalization())
+#    model.add(keras.layers.Conv2D(8, 3, activation='relu', input_shape=(128,128,3)))
+#    model.add(keras.layers.BatchNormalization())
 #     dropout
 #    model.add(keras.layers.Dropout(0.50))
 #    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
@@ -239,7 +246,7 @@ def buildModel(pathBase):
     # ConvLSTM2D
 #    model.add(keras.layers.ConvLSTM2D(64, 3, activation='relu'))
 #     flatten
-    model.add(keras.layers.Flatten())
+#    model.add(keras.layers.Flatten())
 #
 #    model.summary()
 #    # LSTM
@@ -255,14 +262,14 @@ def buildModel(pathBase):
 #    model.add(keras.layers.Dense(2, activation='relu'))
     
     # final dense layer
-    model.add(keras.layers.Dense(
+#    model.add(keras.layers.Dense(
 #            1
-            2
+##            2
 #                                 , activation='sigmoid' 
-                                 , activation='softmax' 
-#                                 , kernel_regularizer=regularizers.l2(0.01)
-#                                 , activity_regularizer=regularizers.l1(0.01)
-                                 ))    
+##                                 , activation='softmax' 
+##                                 , kernel_regularizer=regularizers.l2(0.01)
+##                                 , activity_regularizer=regularizers.l1(0.01)
+#                                 ))    
     
     # resume from checkpoint
 #    savedModelFiles = find_files(pathBase, '2019-02-07--*.hdf5')
@@ -297,17 +304,17 @@ def buildModel(pathBase):
 #    model.add(LSTM(64, return_sequences=True))
 #    model.add(Dense(2, activation='softmax'))
 ##    model = keras.applications.nasnet.NASNetLarge(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
-##    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
+    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
 #    model = keras.applications.vgg16.VGG16(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
 #    print('number of layers: {}'.format(len(model.layers)))
 #    model.summary()
-##    for layer in model.layers[:96]:
+    for layer in model.layers[:96]:
 #    for layer in model.layers:
-#        layer.trainable=False
+        layer.trainable=False
 ###    #Adding custom Layers 
     
 #    input = Input((128,128,3))
-#    x = Conv2D(filters=8, kernel_size=3, activation='relu')(input)
+#    x = Conv2D(filters=1, kernel_size=3, activation='relu')(input)
 #    x = BatchNormalization()(x)
 #    x = Conv2D(filters=64, kernel_size=3, activation='relu')(x)
 #    x = BatchNormalization()(x)
@@ -329,20 +336,20 @@ def buildModel(pathBase):
 #    
 #    x = Flatten()(x)
 #    x = Dense(1024, activation="relu")(x)
-##    x = Reshape((1, 127008//8))(x)
-#    x = Reshape((1, 30976))(x)
-#    x = LSTM(1024)(x)
+#    x = Reshape((1, 127008//8))(x)
+#    x = Reshape((1, 15876))(x)
+#    x = LSTM(512)(x)
 #    output = Dense(2, activation='softmax')(x)
 #    output = Dense(1, activation='sigmoid')(x)
 #    model = Model(input, output)
-    model.summary()
-#    x = model.output
+#    model.summary()
+    x = model.output
 ##    x = Conv2D(64, (3,3), activation='relu')(x)
 ##    x = BatchNormalization()(x)
 ##    x = Conv2D(64, (3,3), activation='relu')(x)
 ##    x = BatchNormalization()(x)
 #    
-#    x = Flatten()(x)
+    x = Flatten()(x)
 #    
 #    input_lay = Input(shape=(None, 128, 128, 3)) #dimensions of your data
 #    time_distribute = TimeDistributed(Lambda(lambda a: model(a)))(input_lay) # keras.layers.Lambda is essential to make our trick work :)
@@ -354,9 +361,9 @@ def buildModel(pathBase):
 #    x = Dropout(0.5)(x)
 #    x = Dense(1024, activation="relu")(x)
 #    x = Dropout(0.5)(x)
-#    predictions = TimeDistributed(Dense(2, activation="softmax"))(x)
-##    # creating the final model 
-#    model = Model(inputs = model.input, outputs = predictions)
+    predictions = Dense(2, activation="softmax")(x)
+#    # creating the final model 
+    model = Model(inputs = model.input, outputs = predictions)
 #    model = Model(inputs=[input_lay], outputs=[output_lay])
     
 #     multiple GPUs
