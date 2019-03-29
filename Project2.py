@@ -208,68 +208,68 @@ def find_files(base, pattern):
 
 def buildModel(pathBase):
 #     create model
-#    model = keras.models.Sequential()
+    model = keras.models.Sequential()
 
 #     2 layers of convolution
-#    model.add(keras.layers.Conv2D(8, 3, activation='relu', input_shape=(128,128,3)))
-#    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(64, 3, activation='relu', input_shape=(128,128,3)))
+    model.add(keras.layers.BatchNormalization())
 #     dropout
 #    model.add(keras.layers.Dropout(0.50))
-#    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
     # dropout
 #    model.add(keras.layers.Dropout(0.25))
     
 #     max pooling
-#    model.add(keras.layers.MaxPooling2D())
+    model.add(keras.layers.MaxPooling2D())
     
 #     2 layers of convolution
-#    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
     
 #     max pooling
-#    model.add(keras.layers.MaxPooling2D())
+    model.add(keras.layers.MaxPooling2D())
     
 #     3 layers of convolution
-#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
 
 #     max pooling
-#    model.add(keras.layers.MaxPooling2D())
+    model.add(keras.layers.MaxPooling2D())
 
     # ConvLSTM2D
 #    model.add(keras.layers.ConvLSTM2D(64, 3, activation='relu'))
 #     flatten
-#    model.add(keras.layers.Flatten())
+    model.add(keras.layers.Flatten())
 #
-#    model.summary()
+    model.summary()
 #    # LSTM
 #    model.add(LSTM(64, input_shape=(1016064,1), return_sequences=True))
     
     # fully connected layer
-#    model.add(keras.layers.Dense(1024, activation='relu'))
-#    model.add(keras.layers.Dense(1024, activation='relu'))
+    model.add(keras.layers.Dense(1024, activation='relu'))
+    model.add(keras.layers.Dense(1024, activation='relu'))
     
     # dropout
-#    model.add(keras.layers.Dropout(0.5))
+    model.add(keras.layers.Dropout(0.99))
 
 #    model.add(keras.layers.Dense(2, activation='relu'))
     
     # final dense layer
-#    model.add(keras.layers.Dense(
-#            1
-##            2
-#                                 , activation='sigmoid' 
-##                                 , activation='softmax' 
-##                                 , kernel_regularizer=regularizers.l2(0.01)
-##                                 , activity_regularizer=regularizers.l1(0.01)
-#                                 ))    
+    model.add(keras.layers.Dense(
+            1
+#            2
+                                 , activation='sigmoid' 
+#                                 , activation='softmax' 
+#                                 , kernel_regularizer=regularizers.l2(0.01)
+#                                 , activity_regularizer=regularizers.l1(0.01)
+                                 ))    
     
     # resume from checkpoint
 #    savedModelFiles = find_files(pathBase, '2019-02-07--*.hdf5')
@@ -282,17 +282,17 @@ def buildModel(pathBase):
 #        model.load_weights(os.path.join(pathBase, savedModelFiles[-1]))
             
     # multiple GPUs
-#    model = multi_gpu_model(model, gpus=16)
+    model = multi_gpu_model(model, gpus=16)
     
     # compile
-#    model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), 
-##                  loss=keras.losses.binary_crossentropy, 
+    model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), 
+                  loss=keras.losses.binary_crossentropy, 
 #                  loss=keras.losses.sparse_categorical_crossentropy, 
-#                  metrics=['acc']
-##                  metrics=['acc', 'mean_squared_error', 'mean_absolute_error', 'mean_absolute_percentage_error', 'cosine_proximity']
-#                  )
-#    
-#    return model
+                  metrics=['acc']
+#                  metrics=['acc', 'mean_squared_error', 'mean_absolute_error', 'mean_absolute_percentage_error', 'cosine_proximity']
+                  )
+    
+    return model
 
 #    model = Sequential()
 #    x_input = Input(shape=(128, 128, 3))
@@ -304,17 +304,17 @@ def buildModel(pathBase):
 #    model.add(LSTM(64, return_sequences=True))
 #    model.add(Dense(2, activation='softmax'))
 ##    model = keras.applications.nasnet.NASNetLarge(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
-    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
+#    model = keras.applications.Xception(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
 #    model = keras.applications.vgg16.VGG16(weights = "imagenet", include_top=False, input_shape=(128, 128, 3))
 #    print('number of layers: {}'.format(len(model.layers)))
 #    model.summary()
-    for layer in model.layers[:96]:
+#    for layer in model.layers[:36]:
 #    for layer in model.layers:
-        layer.trainable=False
+#        layer.trainable=False
 ###    #Adding custom Layers 
     
 #    input = Input((128,128,3))
-#    x = Conv2D(filters=1, kernel_size=3, activation='relu')(input)
+#    x = Conv2D(filters=64, kernel_size=3, activation='relu')(input)
 #    x = BatchNormalization()(x)
 #    x = Conv2D(filters=64, kernel_size=3, activation='relu')(x)
 #    x = BatchNormalization()(x)
@@ -339,17 +339,20 @@ def buildModel(pathBase):
 #    x = Reshape((1, 127008//8))(x)
 #    x = Reshape((1, 15876))(x)
 #    x = LSTM(512)(x)
+#    x = Dropout(0.9)(x)
 #    output = Dense(2, activation='softmax')(x)
 #    output = Dense(1, activation='sigmoid')(x)
 #    model = Model(input, output)
 #    model.summary()
-    x = model.output
+#    x = model.output
+#    x = Reshape((4, 4*2048))(x)
+#    x = LSTM(1024)(x)
 ##    x = Conv2D(64, (3,3), activation='relu')(x)
 ##    x = BatchNormalization()(x)
 ##    x = Conv2D(64, (3,3), activation='relu')(x)
 ##    x = BatchNormalization()(x)
 #    
-    x = Flatten()(x)
+#    x = Flatten()(x)
 #    
 #    input_lay = Input(shape=(None, 128, 128, 3)) #dimensions of your data
 #    time_distribute = TimeDistributed(Lambda(lambda a: model(a)))(input_lay) # keras.layers.Lambda is essential to make our trick work :)
@@ -361,9 +364,9 @@ def buildModel(pathBase):
 #    x = Dropout(0.5)(x)
 #    x = Dense(1024, activation="relu")(x)
 #    x = Dropout(0.5)(x)
-    predictions = Dense(2, activation="softmax")(x)
+#    predictions = Dense(2, activation="softmax")(x)
 #    # creating the final model 
-    model = Model(inputs = model.input, outputs = predictions)
+#    model = Model(inputs = model.input, outputs = predictions)
 #    model = Model(inputs=[input_lay], outputs=[output_lay])
     
 #     multiple GPUs
@@ -404,15 +407,16 @@ if __name__ == "__main__":
     time = strftime("%Y-%m-%d--%H-%M-%S", gmtime())
     checkpoint = ModelCheckpoint('{0}{1}_{{epoch:02d}}-{{val_acc:.2f}}.hdf5'.format(pathBase, time), 
 								 monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-    earlyStop = EarlyStopping('val_acc',0.001,5)
-    callbacks_list = [checkpoint, earlyStop]
-    model.fit(x=train_x, y=train_y, batch_size=64, epochs=10, verbose=2, 
+    earlyStop = EarlyStopping('val_acc',0.001,20)
+#    callbacks_list = [checkpoint, earlyStop]
+    callbacks_list = [earlyStop]
+    model.fit(x=train_x, y=train_y, batch_size=64, epochs=100, verbose=2, 
               callbacks=callbacks_list,
               validation_data=(val_x, val_y),
               initial_epoch=0)    
     print(model.evaluate(test_x, test_y))
     test_y_prob = model.predict(test_x)
-#    test_y_pred = np.round(test_y_prob)
-    test_y_pred = np.argmax(test_y_prob, axis=-1)
+    test_y_pred = np.round(test_y_prob)
+#    test_y_pred = np.argmax(test_y_prob, axis=-1)
     print('Confusion matrix:\n{}'.format(confusion_matrix(test_y, test_y_pred)))
     print('Model evaluation finished at {}'.format(str(datetime.datetime.now())))
