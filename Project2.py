@@ -17,7 +17,7 @@ from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D, Reshap
 from keras.layers.normalization import BatchNormalization
 from keras.preprocessing.image import ImageDataGenerator
 from keras import optimizers
-from keras.models import Sequential, Model 
+from keras.models import Sequential, Model, load_model
 from keras.layers import TimeDistributed
 import sklearn
 from sklearn.metrics import confusion_matrix
@@ -30,6 +30,9 @@ import itertools
 from PIL import Image, ImageFilter
 from scipy.ndimage.filters import gaussian_filter
 from keras.preprocessing.image import ImageDataGenerator
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.metrics import confusion_matrix
 
 #detect face in image
 def DetectFace(cascade, image, scale_factor=1.1):
@@ -248,13 +251,13 @@ def buildModel(pathBase):
 #     flatten
     model.add(keras.layers.Flatten())
 #
-    model.summary()
 #    # LSTM
 #    model.add(LSTM(64, input_shape=(1016064,1), return_sequences=True))
     
     # fully connected layer
     model.add(keras.layers.Dense(1024, activation='relu'))
     model.add(keras.layers.Dense(1024, activation='relu'))
+#    model.add(keras.layers.Dense(1024, activation='relu'))
     
     # dropout
     model.add(keras.layers.Dropout(0.99))
@@ -280,7 +283,7 @@ def buildModel(pathBase):
 #        print("Resumed model's weights from {}".format(savedModelFiles[-1]))
 #        # load weights
 #        model.load_weights(os.path.join(pathBase, savedModelFiles[-1]))
-            
+    model.summary()            
     # multiple GPUs
     model = multi_gpu_model(model, gpus=16)
     
@@ -382,6 +385,19 @@ def buildModel(pathBase):
     
     return model
     
+def RandomForest(model,train_x, train_y, test_x, test_y):
+#    model = load_model('Model_34.hdf5')
+#    model.summary()
+    extract = Model(inputs=model.input, outputs=model.get_layer('flatten_22').output)
+    features = extract.predict(train_x)
+        
+    clf = RandomForestClassifier(n_estimators=10).fit(features,train_y)
+#    clf = SVC(kernel='rbf', C=10, verbose=False).fit(features, train_y)
+    predict_y = clf.predict(extract.predict(test_x))
+    acc = sklearn.metrics.accuracy_score(test_y, predict_y)
+    conf_mat = confusion_matrix(test_y, predict_y)
+    print('ACC: {}\nConfusion matrix (RF):\n{}'.format(acc, conf_mat))
+    
 if __name__ == "__main__":
     pathBase = 'pain_classification/'
     
@@ -405,11 +421,11 @@ if __name__ == "__main__":
     print('Model evaluation started at {}'.format(str(datetime.datetime.now())))
     # fit model to data
     time = strftime("%Y-%m-%d--%H-%M-%S", gmtime())
-    checkpoint = ModelCheckpoint('{0}{1}_{{epoch:02d}}-{{val_acc:.2f}}.hdf5'.format(pathBase, time), 
-								 monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-    earlyStop = EarlyStopping('val_acc',0.001,20)
-#    callbacks_list = [checkpoint, earlyStop]
-    callbacks_list = [earlyStop]
+#    checkpoint = ModelCheckpoint('{0}{1}_{{epoch:02d}}-{{val_acc:.2f}}.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+    checkpoint = ModelCheckpoint('Model_43.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+    earlyStop = EarlyStopping('val_acc',0.001,5)
+    callbacks_list = [checkpoint, earlyStop]
+#    callbacks_list = [earlyStop]
     model.fit(x=train_x, y=train_y, batch_size=64, epochs=100, verbose=2, 
               callbacks=callbacks_list,
               validation_data=(val_x, val_y),
@@ -418,5 +434,5 @@ if __name__ == "__main__":
     test_y_prob = model.predict(test_x)
     test_y_pred = np.round(test_y_prob)
 #    test_y_pred = np.argmax(test_y_prob, axis=-1)
-    print('Confusion matrix:\n{}'.format(confusion_matrix(test_y, test_y_pred)))
+    print('Confusion matrix (CNN):\n{}'.format(confusion_matrix(test_y, test_y_pred)))
     print('Model evaluation finished at {}'.format(str(datetime.datetime.now())))
