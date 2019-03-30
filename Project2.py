@@ -388,7 +388,7 @@ def buildModel(pathBase):
 def RandomForest(model,train_x, train_y, test_x, test_y):
 #    model = load_model('Model_34.hdf5')
 #    model.summary()
-    extract = Model(inputs=model.input, outputs=model.get_layer('flatten_26').output)
+    extract = Model(inputs=model.input, outputs=model.get_layer('flatten_1').output)
     features = extract.predict(train_x)
         
     clf = RandomForestClassifier(n_estimators=10).fit(features,train_y)
@@ -415,6 +415,7 @@ if __name__ == "__main__":
     print('Class balance finished at {}'.format(str(datetime.datetime.now())))
 
     print('Model building started at {}'.format(str(datetime.datetime.now())))
+    keras.backend.clear_session()
     model = buildModel(pathBase)
     print('Model building finished at {}'.format(str(datetime.datetime.now())))
     
