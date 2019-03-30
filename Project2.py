@@ -388,7 +388,7 @@ def buildModel(pathBase):
 def RandomForest(model,train_x, train_y, test_x, test_y):
 #    model = load_model('Model_34.hdf5')
 #    model.summary()
-    extract = Model(inputs=model.input, outputs=model.get_layer('flatten_22').output)
+    extract = Model(inputs=model.input, outputs=model.get_layer('flatten_26').output)
     features = extract.predict(train_x)
         
     clf = RandomForestClassifier(n_estimators=10).fit(features,train_y)
@@ -435,4 +435,5 @@ if __name__ == "__main__":
     test_y_pred = np.round(test_y_prob)
 #    test_y_pred = np.argmax(test_y_prob, axis=-1)
     print('Confusion matrix (CNN):\n{}'.format(confusion_matrix(test_y, test_y_pred)))
+    RandomForest(model,train_x,train_y,test_x,test_y)
     print('Model evaluation finished at {}'.format(str(datetime.datetime.now())))
