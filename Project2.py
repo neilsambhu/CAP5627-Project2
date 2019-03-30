@@ -33,6 +33,7 @@ from keras.preprocessing.image import ImageDataGenerator
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix
+from keras import backend as K
 
 #detect face in image
 def DetectFace(cascade, image, scale_factor=1.1):
@@ -214,53 +215,53 @@ def buildModel(pathBase):
     model = keras.models.Sequential()
 
 #     2 layers of convolution
-    model.add(keras.layers.Conv2D(64, 3, activation='relu', input_shape=(128,128,3)))
+    model.add(keras.layers.Conv2D(1, 3, activation='relu', input_shape=(128,128,3)))
     model.add(keras.layers.BatchNormalization())
 #     dropout
 #    model.add(keras.layers.Dropout(0.50))
-    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-    # dropout
-#    model.add(keras.layers.Dropout(0.25))
-    
-#     max pooling
-    model.add(keras.layers.MaxPooling2D())
-    
-#     2 layers of convolution
-    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-    
-#     max pooling
-    model.add(keras.layers.MaxPooling2D())
-    
-#     3 layers of convolution
-    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-    model.add(keras.layers.BatchNormalization())
-
-#     max pooling
-    model.add(keras.layers.MaxPooling2D())
-
-    # ConvLSTM2D
-#    model.add(keras.layers.ConvLSTM2D(64, 3, activation='relu'))
+#    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+#    # dropout
+##    model.add(keras.layers.Dropout(0.25))
+#    
+##     max pooling
+#    model.add(keras.layers.MaxPooling2D())
+#    
+##     2 layers of convolution
+#    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+#    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+#    
+##     max pooling
+#    model.add(keras.layers.MaxPooling2D())
+#    
+##     3 layers of convolution
+#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+#    model.add(keras.layers.BatchNormalization())
+#
+##     max pooling
+#    model.add(keras.layers.MaxPooling2D())
+#
+#    # ConvLSTM2D
+##    model.add(keras.layers.ConvLSTM2D(64, 3, activation='relu'))
 #     flatten
     model.add(keras.layers.Flatten())
-#
-#    # LSTM
-#    model.add(LSTM(64, input_shape=(1016064,1), return_sequences=True))
-    
+##
+##    # LSTM
+##    model.add(LSTM(64, input_shape=(1016064,1), return_sequences=True))
+#    
     # fully connected layer
-    model.add(keras.layers.Dense(1024, activation='relu'))
-    model.add(keras.layers.Dense(1024, activation='relu'))
-#    model.add(keras.layers.Dense(1024, activation='relu'))
-    
-    # dropout
-    model.add(keras.layers.Dropout(0.99))
+    model.add(keras.layers.Dense(8, activation='relu'))
+#    model.add(keras.layers.Dense(2048, activation='relu'))
+##    model.add(keras.layers.Dense(1024, activation='relu'))
+#    
+#    # dropout
+#    model.add(keras.layers.Dropout(0.99))
 
 #    model.add(keras.layers.Dense(2, activation='relu'))
     
@@ -386,10 +387,38 @@ def buildModel(pathBase):
     return model
     
 def RandomForest(model,train_x, train_y, test_x, test_y):
-#    model = load_model('Model_34.hdf5')
-#    model.summary()
-    extract = Model(inputs=model.input, outputs=model.get_layer('flatten_1').output)
-    features = extract.predict(train_x)
+    keras.backend.clear_session()
+    model = load_model('Model_34.hdf5')
+    model.summary()
+#    extract = Model(inputs=model.input, outputs=model.get_layer('sequential_3').output)
+#    features = extract.predict(train_x)
+    extract = []
+    features = []
+    layer_name = 'sequential_1'
+#    for inbound_node in range(0, len(model.get_layer(layer_name)._inbound_nodes)):
+##        tempModel = Model(inputs=model.input, outputs=model.get_layer(layer_name).get_output_at(inbound_node))
+###        tempModel = K.function([model.layers[0].input], [model.get_layer(layer_name).get_output_at(-1)])
+##        tempModel2 = multi_gpu_model(tempModel, gpus=16)
+###        extract.append([tempModel])
+##        tempFeatures = tempModel2.predict(train_x)
+###        tempFeatures = tempModel2([train_x])[0]
+##        features.append([tempFeatures])
+#        try:
+#            tempModel = Model(inputs=model.input, outputs=model.get_layer(layer_name).get_output_at(inbound_node))
+#            tempModel = multi_gpu_model(tempModel, gpus=16)
+#            extract.append([tempModel])
+#            tempFeatures = tempModel.predict(train_x)
+#            features.append([tempFeatures])
+#            print('Good node: {}'.format(inbound_node))
+#        except:
+#            print('Bad node: {}'.format(inbound_node))
+    inp = model.input                                           # input placeholder
+    outputs = [layer.output for layer in model.layers]          # all layer outputs
+    functor = K.function([inp, K.learning_phase()], outputs )   # evaluation function
+    
+    # Testing
+#    layer_outs = functor([test, 1.])
+#    print(layer_outs)
         
     clf = RandomForestClassifier(n_estimators=10).fit(features,train_y)
 #    clf = SVC(kernel='rbf', C=10, verbose=False).fit(features, train_y)
@@ -423,11 +452,11 @@ if __name__ == "__main__":
     # fit model to data
     time = strftime("%Y-%m-%d--%H-%M-%S", gmtime())
 #    checkpoint = ModelCheckpoint('{0}{1}_{{epoch:02d}}-{{val_acc:.2f}}.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-    checkpoint = ModelCheckpoint('Model_43.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-    earlyStop = EarlyStopping('val_acc',0.001,5)
+    checkpoint = ModelCheckpoint('Model_34c.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+    earlyStop = EarlyStopping('val_acc',0.001,20)
     callbacks_list = [checkpoint, earlyStop]
 #    callbacks_list = [earlyStop]
-    model.fit(x=train_x, y=train_y, batch_size=64, epochs=100, verbose=2, 
+    model.fit(x=train_x, y=train_y, batch_size=64, epochs=1, verbose=2, 
               callbacks=callbacks_list,
               validation_data=(val_x, val_y),
               initial_epoch=0)    
@@ -436,5 +465,7 @@ if __name__ == "__main__":
     test_y_pred = np.round(test_y_prob)
 #    test_y_pred = np.argmax(test_y_prob, axis=-1)
     print('Confusion matrix (CNN):\n{}'.format(confusion_matrix(test_y, test_y_pred)))
+    extract = Model(inputs=model.input, outputs=model.get_layer('dense_1').output)
+    features = extract.predict(train_x)
     RandomForest(model,train_x,train_y,test_x,test_y)
     print('Model evaluation finished at {}'.format(str(datetime.datetime.now())))
