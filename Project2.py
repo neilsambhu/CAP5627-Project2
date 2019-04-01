@@ -7,6 +7,8 @@ Created on Thu Jan  3 16:41:58 2019
 import os
 import numpy as np
 import cv2
+import dlib
+from imutils import face_utils
 import keras
 from keras.utils import multi_gpu_model
 from keras.callbacks import ModelCheckpoint
@@ -36,26 +38,31 @@ from sklearn.metrics import confusion_matrix
 from keras import backend as K
 
 #detect face in image
-def DetectFace(cascade, image, scale_factor=1.1):
+def DetectFace(cascade, image, detector, predictor, scale_factor=1.1):
     #convert image to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)          
     #find face(s) in image
     faces = cascade.detectMultiScale(gray, scaleFactor=scale_factor, minNeighbors=3, minSize=(110,110))
+    rects = detector(gray, 0)
     
     outputFace = None
+    outputLandmarks = None
     #crop image to face region
     for face in faces:
-        if face is None:
-            print('Face not detected in {}'.format(image))
+        if face is None or len(rects) == 0:
+#            print('Face not detected in {}'.format(image))
+            break
         else:
             x,y,w,h = face
             outputFace = image[y:y+h, x:x+w]
-            return outputFace, True
-    return outputFace, False
+            outputLandmarks = face_utils.shape_to_np(predictor(gray, rects[0]))
+            return outputFace, outputLandmarks.flatten(), True
+    return outputFace, outputLandmarks, False
 
 def directorySearch(directory, label, dataName, dataAugmentation=False):
     print('Started directory search of {} at {}'.format(dataName, str(datetime.datetime.now())))
     x, y = [], []
+    landmarksOutput = []
     face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 
     time = strftime("%Y-%m-%d--%H-%M-%S", gmtime())
@@ -72,6 +79,8 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
         return
     countBadImages = 0
     countBadFaces = 0
+    detector = dlib.get_frontal_face_detector()
+    predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
     img_gen = ImageDataGenerator()
 #    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))[0:100]):
     for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))):
@@ -83,13 +92,14 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
                 countBadImages += 1
                 pass
             else:
-                face, faceDetected = DetectFace(face_cascade, img)
+                face, landmarks, faceDetected = DetectFace(face_cascade, img, detector, predictor)
                 if faceDetected:
                     faceResized = cv2.resize(face, (128, 128), interpolation = cv2.INTER_AREA)
 #                    print(faceResized.shape)
 #                    cv2.imwrite("Original.jpg", faceResized)
                     x.append(faceResized)
                     y.append(label)
+                    landmarksOutput.append(landmarks)
                     
                     if dataAugmentation:
                         # transformation types
@@ -138,7 +148,7 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
     if countBadFaces > 0:
         print('Bad faces count: {}'.format(countBadFaces))
     print('Ended directory search of {} at {}'.format(dataName, str(datetime.datetime.now())))
-    return x, y
+    return x, landmarksOutput, y
 
 def verifyLength(list1, list2, list1Name, list2Name):
     if len(list1) != len(list2):
@@ -148,18 +158,18 @@ def verifyLength(list1, list2, list1Name, list2Name):
 def readImages(pathData):
     # get test data
     pathTestNoPain = '{}Testing/No_pain/'.format(pathData)
-    x_TestNoPain, y_TestNoPain = directorySearch(pathTestNoPain, 0, 'Test No Pain')
+    x_TestNoPain, x_TestNoPain_Landmarks, y_TestNoPain = directorySearch(pathTestNoPain, 0, 'Test No Pain')
     verifyLength(x_TestNoPain, y_TestNoPain, 'x_TestNoPain', 'y_TestNoPain')
     pathTestPain = '{}Testing/Pain/'.format(pathData)
-    x_TestPain, y_TestPain = directorySearch(pathTestPain, 1, 'Test Pain')
+    x_TestPain, x_TestPain_Landmarks, y_TestPain = directorySearch(pathTestPain, 1, 'Test Pain')
     verifyLength(x_TestPain, y_TestPain, 'x_TestPain', 'y_TestPain')
 
     # get train data
     pathTrainNoPain = '{}Training/No_pain/'.format(pathData)
-    x_TrainNoPain, y_TrainNoPain = directorySearch(pathTrainNoPain, 0, 'Train No Pain', dataAugmentation=False)
+    x_TrainNoPain, x_TrainNoPain_Landmarks, y_TrainNoPain = directorySearch(pathTrainNoPain, 0, 'Train No Pain', dataAugmentation=False)
     verifyLength(x_TrainNoPain, y_TrainNoPain, 'x_TrainNoPain', 'y_TrainNoPain')
     pathTrainPain = '{}Training/Pain/'.format(pathData)
-    x_TrainPain, y_TrainPain = directorySearch(pathTrainPain, 1, 'Train Pain', dataAugmentation=False)
+    x_TrainPain, x_TrainPain_Landmarks, y_TrainPain = directorySearch(pathTrainPain, 1, 'Train Pain', dataAugmentation=False)
     verifyLength(x_TrainPain, y_TrainPain, 'x_TrainPain', 'y_TrainPain')
     # rebalance classes for training data
 #    print('Original Training pain shape\nx: {}\ny: {}'.format(np.asarray(x_TrainPain).shape, np.asarray(y_TrainPain).shape))
@@ -169,32 +179,35 @@ def readImages(pathData):
     # find which class has more
     lenDiff = abs(len(x_TrainPain)-len(x_TrainNoPain))
     if len(x_TrainPain) < len(x_TrainNoPain):
-        x_TrainNoPain, y_TrainNoPain = sklearn.utils.shuffle(x_TrainNoPain, y_TrainNoPain)
-        x_TrainNoPain, y_TrainNoPain = x_TrainNoPain[0:-lenDiff], y_TrainNoPain[0:-lenDiff]
+        x_TrainNoPain, x_TrainNoPain_Landmarks, y_TrainNoPain = sklearn.utils.shuffle(x_TrainNoPain, x_TrainNoPain_Landmarks, y_TrainNoPain)
+        x_TrainNoPain, x_TrainNoPain_Landmarks, y_TrainNoPain = x_TrainNoPain[0:-lenDiff], x_TrainNoPain_Landmarks[0:-lenDiff], y_TrainNoPain[0:-lenDiff]
     else: 
-        x_TrainPain, y_TrainPain = sklearn.utils.shuffle(x_TrainPain, y_TrainPain)
-        x_TrainPain, y_TrainPain = x_TrainPain[0:-lenDiff], y_TrainPain[0:-lenDiff]
+        x_TrainPain, x_TrainPain_Landmarks, y_TrainPain = sklearn.utils.shuffle(x_TrainPain, x_TrainPain_Landmarks, y_TrainPain)
+        x_TrainPain, y_TrainPain = x_TrainPain[0:-lenDiff], x_TrainPain_Landmarks[0:-lenDiff], y_TrainPain[0:-lenDiff]
 
     # get val data
     pathValNoPain = '{}Validaiton/No_pain/'.format(pathData)
-    x_ValNoPain, y_ValNoPain = directorySearch(pathValNoPain, 0, 'Val NoPain')
+    x_ValNoPain, x_ValNoPain_Landmarks, y_ValNoPain = directorySearch(pathValNoPain, 0, 'Val NoPain')
     verifyLength(x_ValNoPain, y_ValNoPain, 'x_ValNoPain', 'y_ValNoPain')
     pathValPain = '{}Validaiton/Pain/'.format(pathData)
-    x_ValPain, y_ValPain = directorySearch(pathValPain, 1, 'Val Pain')
+    x_ValPain, x_ValPain_Landmarks, y_ValPain = directorySearch(pathValPain, 1, 'Val Pain')
     verifyLength(x_ValPain, y_ValPain, 'x_ValPain', 'y_ValPain')
 
     # setup testing data
     test_x = np.asarray(x_TestNoPain + x_TestPain)
+    test_x_Landmarks = np.asarray(x_TestNoPain_Landmarks + x_TestPain_Landmarks)
     test_y = np.asarray(y_TestNoPain + y_TestPain)
 #    test_x, test_y = sklearn.utils.shuffle(test_x, test_y)
     
     # setup training data
     train_x = np.asarray(x_TrainNoPain + x_TrainPain)
+    train_x_Landmarks = np.asarray(x_TrainNoPain_Landmarks + x_TrainPain_Landmarks)
     train_y = np.asarray(y_TrainNoPain + y_TrainPain)
 #    train_x, train_y = sklearn.utils.shuffle(train_x, train_y)
 
     # setup validation data
     val_x = np.asarray(x_ValNoPain + x_ValPain)
+    val_x_Landmarks = np.asarray(x_ValNoPain_Landmarks + x_ValPain_Landmarks)
     val_y = np.asarray(y_ValNoPain + y_ValPain)
 #    val_x, val_y = sklearn.utils.shuffle(val_x, val_y)
     
@@ -203,7 +216,7 @@ def readImages(pathData):
     train_x = train_x.astype('float32')/255.0
     val_x = val_x.astype('float32')/255.0
     
-    return test_x, test_y, train_x, train_y, val_x, val_y
+    return test_x, test_x_Landmarks, test_y, train_x, train_x_Landmarks, train_y, val_x, val_x_Landmarks, val_y
 
 def find_files(base, pattern):
     '''Return list of files matching pattern in base folder.'''
@@ -215,40 +228,40 @@ def buildModel(pathBase):
     model = keras.models.Sequential()
 
 #     2 layers of convolution
-    model.add(keras.layers.Conv2D(1, 3, activation='relu', input_shape=(128,128,3)))
+    model.add(keras.layers.Conv2D(64, 3, activation='relu', input_shape=(128,128,3)))
     model.add(keras.layers.BatchNormalization())
 #     dropout
 #    model.add(keras.layers.Dropout(0.50))
-#    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    # dropout
-##    model.add(keras.layers.Dropout(0.25))
-#    
-##     max pooling
-#    model.add(keras.layers.MaxPooling2D())
-#    
-##     2 layers of convolution
-#    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    
-##     max pooling
-#    model.add(keras.layers.MaxPooling2D())
-#    
-##     3 layers of convolution
-#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
-#    model.add(keras.layers.BatchNormalization())
-#
-##     max pooling
-#    model.add(keras.layers.MaxPooling2D())
-#
-#    # ConvLSTM2D
-##    model.add(keras.layers.ConvLSTM2D(64, 3, activation='relu'))
+    model.add(keras.layers.Conv2D(64, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    # dropout
+#    model.add(keras.layers.Dropout(0.25))
+    
+#     max pooling
+    model.add(keras.layers.MaxPooling2D())
+    
+#     2 layers of convolution
+    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(128, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    
+#     max pooling
+    model.add(keras.layers.MaxPooling2D())
+    
+#     3 layers of convolution
+    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+    model.add(keras.layers.Conv2D(256, 3, activation='relu'))
+    model.add(keras.layers.BatchNormalization())
+
+#     max pooling
+    model.add(keras.layers.MaxPooling2D())
+
+    # ConvLSTM2D
+#    model.add(keras.layers.ConvLSTM2D(64, 3, activation='relu'))
 #     flatten
     model.add(keras.layers.Flatten())
 ##
@@ -256,21 +269,21 @@ def buildModel(pathBase):
 ##    model.add(LSTM(64, input_shape=(1016064,1), return_sequences=True))
 #    
     # fully connected layer
-    model.add(keras.layers.Dense(8, activation='relu'))
-#    model.add(keras.layers.Dense(2048, activation='relu'))
-##    model.add(keras.layers.Dense(1024, activation='relu'))
+    model.add(keras.layers.Dense(1024, activation='relu'))
+#    model.add(keras.layers.Dense(1024, activation='relu'))
+#    model.add(keras.layers.Dense(1024, activation='relu'))
 #    
-#    # dropout
-#    model.add(keras.layers.Dropout(0.99))
+    # dropout
+    model.add(keras.layers.Dropout(0.99))
 
 #    model.add(keras.layers.Dense(2, activation='relu'))
     
-    # final dense layer
+#    # final dense layer
     model.add(keras.layers.Dense(
-            1
-#            2
-                                 , activation='sigmoid' 
-#                                 , activation='softmax' 
+#            1
+            2
+#                                 , activation='sigmoid' 
+                                 , activation='softmax' 
 #                                 , kernel_regularizer=regularizers.l2(0.01)
 #                                 , activity_regularizer=regularizers.l1(0.01)
                                  ))    
@@ -290,8 +303,8 @@ def buildModel(pathBase):
     
     # compile
     model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), 
-                  loss=keras.losses.binary_crossentropy, 
-#                  loss=keras.losses.sparse_categorical_crossentropy, 
+#                  loss=keras.losses.binary_crossentropy, 
+                  loss=keras.losses.sparse_categorical_crossentropy, 
                   metrics=['acc']
 #                  metrics=['acc', 'mean_squared_error', 'mean_absolute_error', 'mean_absolute_percentage_error', 'cosine_proximity']
                   )
@@ -387,14 +400,15 @@ def buildModel(pathBase):
     return model
     
 def RandomForest(model,train_x, train_y, test_x, test_y):
-    keras.backend.clear_session()
-    model = load_model('Model_34.hdf5')
-    model.summary()
-#    extract = Model(inputs=model.input, outputs=model.get_layer('sequential_3').output)
-#    features = extract.predict(train_x)
-    extract = []
-    features = []
-    layer_name = 'sequential_1'
+#    keras.backend.clear_session()
+#    model = load_model('Model_34.hdf5')
+#    model.summary()
+    layer_name = 'dense_2'
+    extract = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
+    features = extract.predict(train_x)
+#    extract = []
+#    features = []
+    
 #    for inbound_node in range(0, len(model.get_layer(layer_name)._inbound_nodes)):
 ##        tempModel = Model(inputs=model.input, outputs=model.get_layer(layer_name).get_output_at(inbound_node))
 ###        tempModel = K.function([model.layers[0].input], [model.get_layer(layer_name).get_output_at(-1)])
@@ -412,17 +426,20 @@ def RandomForest(model,train_x, train_y, test_x, test_y):
 #            print('Good node: {}'.format(inbound_node))
 #        except:
 #            print('Bad node: {}'.format(inbound_node))
-    inp = model.input                                           # input placeholder
-    outputs = [layer.output for layer in model.layers]          # all layer outputs
-    functor = K.function([inp, K.learning_phase()], outputs )   # evaluation function
+#    inp = model.input                                           # input placeholder
+#    functor = K.function([inp, K.learning_phase()], outputs=model.get_layer(layer_name).output )   # evaluation function
     
     # Testing
-#    layer_outs = functor([test, 1.])
+#    features = functor([train_x, 1.])
 #    print(layer_outs)
         
     clf = RandomForestClassifier(n_estimators=10).fit(features,train_y)
+#    training_data = np.concatenate((features, train_x_Landmarks), axis=1)
+#    clf = RandomForestClassifier(n_estimators=10).fit(training_data, train_y)
 #    clf = SVC(kernel='rbf', C=10, verbose=False).fit(features, train_y)
     predict_y = clf.predict(extract.predict(test_x))
+#    testing_data = np.concatenate((extract.predict(test_x), test_x_Landmarks), axis=1)
+#    predict_y = clf.predict(testing_data)
     acc = sklearn.metrics.accuracy_score(test_y, predict_y)
     conf_mat = confusion_matrix(test_y, predict_y)
     print('ACC: {}\nConfusion matrix (RF):\n{}'.format(acc, conf_mat))
@@ -431,7 +448,8 @@ if __name__ == "__main__":
     pathBase = 'pain_classification/'
     
     print('Image reading started at {}'.format(str(datetime.datetime.now())))
-    test_x, test_y, train_x, train_y, val_x, val_y = readImages(pathBase)
+#    test_x, test_y, train_x, train_y, val_x, val_y 
+    test_x, test_x_Landmarks, test_y, train_x, train_x_Landmarks, train_y, val_x, val_x_Landmarks, val_y = readImages(pathBase)
     print('Image reading finished at {}'.format(str(datetime.datetime.now())))
 
     print('Class balance started at {}'.format(str(datetime.datetime.now())))
@@ -452,20 +470,18 @@ if __name__ == "__main__":
     # fit model to data
     time = strftime("%Y-%m-%d--%H-%M-%S", gmtime())
 #    checkpoint = ModelCheckpoint('{0}{1}_{{epoch:02d}}-{{val_acc:.2f}}.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-    checkpoint = ModelCheckpoint('Model_34c.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-    earlyStop = EarlyStopping('val_acc',0.001,20)
+    checkpoint = ModelCheckpoint('Model_60.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+    earlyStop = EarlyStopping('val_acc',0.001,25)
     callbacks_list = [checkpoint, earlyStop]
 #    callbacks_list = [earlyStop]
-    model.fit(x=train_x, y=train_y, batch_size=64, epochs=1, verbose=2, 
+    model.fit(x=train_x, y=train_y, batch_size=64, epochs=100, verbose=2, 
               callbacks=callbacks_list,
               validation_data=(val_x, val_y),
-              initial_epoch=0)    
+              initial_epoch=0)
     print(model.evaluate(test_x, test_y))
     test_y_prob = model.predict(test_x)
-    test_y_pred = np.round(test_y_prob)
-#    test_y_pred = np.argmax(test_y_prob, axis=-1)
+#    test_y_pred = np.round(test_y_prob)
+    test_y_pred = np.argmax(test_y_prob, axis=-1)
     print('Confusion matrix (CNN):\n{}'.format(confusion_matrix(test_y, test_y_pred)))
-    extract = Model(inputs=model.input, outputs=model.get_layer('dense_1').output)
-    features = extract.predict(train_x)
     RandomForest(model,train_x,train_y,test_x,test_y)
     print('Model evaluation finished at {}'.format(str(datetime.datetime.now())))
