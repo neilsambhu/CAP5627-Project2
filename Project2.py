@@ -7,8 +7,8 @@ Created on Thu Jan  3 16:41:58 2019
 import os
 import numpy as np
 import cv2
-import dlib
-from imutils import face_utils
+#import dlib
+#from imutils import face_utils
 import keras
 from keras.utils import multi_gpu_model
 from keras.callbacks import ModelCheckpoint
@@ -22,7 +22,6 @@ from keras import optimizers
 from keras.models import Sequential, Model, load_model
 from keras.layers import TimeDistributed
 import sklearn
-from sklearn.metrics import confusion_matrix
 import datetime
 from tqdm import tqdm
 import fnmatch
@@ -35,34 +34,41 @@ from keras.preprocessing.image import ImageDataGenerator
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix
+#from sklearn.metrics import precision_score
+#from sklearn.metrics import recall_score
+#from sklearn.metrics import f1_score
 from keras import backend as K
 
 #detect face in image
-def DetectFace(cascade, image, detector, predictor, scale_factor=1.1):
+def DetectFace(cascade, image, scale_factor=1.1):
     #convert image to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)          
     #find face(s) in image
     faces = cascade.detectMultiScale(gray, scaleFactor=scale_factor, minNeighbors=3, minSize=(110,110))
-    rects = detector(gray, 0)
+#    rects = detector(gray, 0)
     
     outputFace = None
-    outputLandmarks = None
+#    outputLandmarks = None
     #crop image to face region
     for face in faces:
-        if face is None or len(rects) == 0:
+        if face is None:
 #            print('Face not detected in {}'.format(image))
             break
         else:
             x,y,w,h = face
             outputFace = image[y:y+h, x:x+w]
-            outputLandmarks = face_utils.shape_to_np(predictor(gray, rects[0]))
-            return outputFace, outputLandmarks.flatten(), True
-    return outputFace, outputLandmarks, False
+#            outputLandmarks = face_utils.shape_to_np(predictor(gray, rects[0]))
+#            cv2.imwrite("Original.jpg", image)
+#            cv2.imwrite("Crop.jpg", outputFace)
+#            sys.exit()
+#            return outputFace, outputLandmarks.flatten(), True
+            return outputFace, True
+    return outputFace, False
 
 def directorySearch(directory, label, dataName, dataAugmentation=False):
-    print('Started directory search of {} at {}'.format(dataName, str(datetime.datetime.now())))
+#    print('Started directory search of {} at {}'.format(dataName, str(datetime.datetime.now())))
     x, y = [], []
-    landmarksOutput = []
+#    landmarksOutput = []
     face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 
     time = strftime("%Y-%m-%d--%H-%M-%S", gmtime())
@@ -79,8 +85,8 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
         return
     countBadImages = 0
     countBadFaces = 0
-    detector = dlib.get_frontal_face_detector()
-    predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+#    detector = dlib.get_frontal_face_detector()
+#    predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
     img_gen = ImageDataGenerator()
 #    for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))[0:100]):
     for file in tqdm(sklearn.utils.shuffle(os.listdir(directory))):
@@ -92,14 +98,14 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
                 countBadImages += 1
                 pass
             else:
-                face, landmarks, faceDetected = DetectFace(face_cascade, img, detector, predictor)
+                face, faceDetected = DetectFace(face_cascade, img)
                 if faceDetected:
                     faceResized = cv2.resize(face, (128, 128), interpolation = cv2.INTER_AREA)
 #                    print(faceResized.shape)
 #                    cv2.imwrite("Original.jpg", faceResized)
                     x.append(faceResized)
                     y.append(label)
-                    landmarksOutput.append(landmarks)
+#                    landmarksOutput.append(landmarks)
                     
                     if dataAugmentation:
                         # transformation types
@@ -143,12 +149,12 @@ def directorySearch(directory, label, dataName, dataAugmentation=False):
                 else:
 #                    fileBadFaces.write(file + '\n')
                     countBadFaces += 1
-    if countBadImages > 0:
-        print('Bad images count: {}'.format(countBadImages))
-    if countBadFaces > 0:
-        print('Bad faces count: {}'.format(countBadFaces))
-    print('Ended directory search of {} at {}'.format(dataName, str(datetime.datetime.now())))
-    return x, landmarksOutput, y
+#    if countBadImages > 0:
+#        print('Bad images count: {}'.format(countBadImages))
+#    if countBadFaces > 0:
+#        print('Bad faces count: {}'.format(countBadFaces))
+#    print('Ended directory search of {} at {}'.format(dataName, str(datetime.datetime.now())))
+    return x, y
 
 def verifyLength(list1, list2, list1Name, list2Name):
     if len(list1) != len(list2):
@@ -158,18 +164,18 @@ def verifyLength(list1, list2, list1Name, list2Name):
 def readImages(pathData):
     # get test data
     pathTestNoPain = '{}Testing/No_pain/'.format(pathData)
-    x_TestNoPain, x_TestNoPain_Landmarks, y_TestNoPain = directorySearch(pathTestNoPain, 0, 'Test No Pain')
+    x_TestNoPain, y_TestNoPain = directorySearch(pathTestNoPain, 0, 'Test No Pain')
     verifyLength(x_TestNoPain, y_TestNoPain, 'x_TestNoPain', 'y_TestNoPain')
     pathTestPain = '{}Testing/Pain/'.format(pathData)
-    x_TestPain, x_TestPain_Landmarks, y_TestPain = directorySearch(pathTestPain, 1, 'Test Pain')
+    x_TestPain, y_TestPain = directorySearch(pathTestPain, 1, 'Test Pain')
     verifyLength(x_TestPain, y_TestPain, 'x_TestPain', 'y_TestPain')
 
     # get train data
     pathTrainNoPain = '{}Training/No_pain/'.format(pathData)
-    x_TrainNoPain, x_TrainNoPain_Landmarks, y_TrainNoPain = directorySearch(pathTrainNoPain, 0, 'Train No Pain', dataAugmentation=False)
+    x_TrainNoPain, y_TrainNoPain = directorySearch(pathTrainNoPain, 0, 'Train No Pain', dataAugmentation=False)
     verifyLength(x_TrainNoPain, y_TrainNoPain, 'x_TrainNoPain', 'y_TrainNoPain')
     pathTrainPain = '{}Training/Pain/'.format(pathData)
-    x_TrainPain, x_TrainPain_Landmarks, y_TrainPain = directorySearch(pathTrainPain, 1, 'Train Pain', dataAugmentation=False)
+    x_TrainPain, y_TrainPain = directorySearch(pathTrainPain, 1, 'Train Pain', dataAugmentation=False)
     verifyLength(x_TrainPain, y_TrainPain, 'x_TrainPain', 'y_TrainPain')
     # rebalance classes for training data
 #    print('Original Training pain shape\nx: {}\ny: {}'.format(np.asarray(x_TrainPain).shape, np.asarray(y_TrainPain).shape))
@@ -179,35 +185,35 @@ def readImages(pathData):
     # find which class has more
     lenDiff = abs(len(x_TrainPain)-len(x_TrainNoPain))
     if len(x_TrainPain) < len(x_TrainNoPain):
-        x_TrainNoPain, x_TrainNoPain_Landmarks, y_TrainNoPain = sklearn.utils.shuffle(x_TrainNoPain, x_TrainNoPain_Landmarks, y_TrainNoPain)
-        x_TrainNoPain, x_TrainNoPain_Landmarks, y_TrainNoPain = x_TrainNoPain[0:-lenDiff], x_TrainNoPain_Landmarks[0:-lenDiff], y_TrainNoPain[0:-lenDiff]
+        x_TrainNoPain, y_TrainNoPain = sklearn.utils.shuffle(x_TrainNoPain, y_TrainNoPain)
+        x_TrainNoPain, y_TrainNoPain = x_TrainNoPain[0:-lenDiff], y_TrainNoPain[0:-lenDiff]
     else: 
-        x_TrainPain, x_TrainPain_Landmarks, y_TrainPain = sklearn.utils.shuffle(x_TrainPain, x_TrainPain_Landmarks, y_TrainPain)
-        x_TrainPain, y_TrainPain = x_TrainPain[0:-lenDiff], x_TrainPain_Landmarks[0:-lenDiff], y_TrainPain[0:-lenDiff]
+        x_TrainPain, y_TrainPain = sklearn.utils.shuffle(x_TrainPain, y_TrainPain)
+        x_TrainPain, y_TrainPain = x_TrainPain[0:-lenDiff], y_TrainPain[0:-lenDiff]
 
     # get val data
     pathValNoPain = '{}Validaiton/No_pain/'.format(pathData)
-    x_ValNoPain, x_ValNoPain_Landmarks, y_ValNoPain = directorySearch(pathValNoPain, 0, 'Val NoPain')
+    x_ValNoPain, y_ValNoPain = directorySearch(pathValNoPain, 0, 'Val NoPain')
     verifyLength(x_ValNoPain, y_ValNoPain, 'x_ValNoPain', 'y_ValNoPain')
     pathValPain = '{}Validaiton/Pain/'.format(pathData)
-    x_ValPain, x_ValPain_Landmarks, y_ValPain = directorySearch(pathValPain, 1, 'Val Pain')
+    x_ValPain, y_ValPain = directorySearch(pathValPain, 1, 'Val Pain')
     verifyLength(x_ValPain, y_ValPain, 'x_ValPain', 'y_ValPain')
 
     # setup testing data
     test_x = np.asarray(x_TestNoPain + x_TestPain)
-    test_x_Landmarks = np.asarray(x_TestNoPain_Landmarks + x_TestPain_Landmarks)
+#    test_x_Landmarks = np.asarray(x_TestNoPain_Landmarks + x_TestPain_Landmarks)
     test_y = np.asarray(y_TestNoPain + y_TestPain)
 #    test_x, test_y = sklearn.utils.shuffle(test_x, test_y)
     
     # setup training data
     train_x = np.asarray(x_TrainNoPain + x_TrainPain)
-    train_x_Landmarks = np.asarray(x_TrainNoPain_Landmarks + x_TrainPain_Landmarks)
+#    train_x_Landmarks = np.asarray(x_TrainNoPain_Landmarks + x_TrainPain_Landmarks)
     train_y = np.asarray(y_TrainNoPain + y_TrainPain)
 #    train_x, train_y = sklearn.utils.shuffle(train_x, train_y)
 
     # setup validation data
     val_x = np.asarray(x_ValNoPain + x_ValPain)
-    val_x_Landmarks = np.asarray(x_ValNoPain_Landmarks + x_ValPain_Landmarks)
+#    val_x_Landmarks = np.asarray(x_ValNoPain_Landmarks + x_ValPain_Landmarks)
     val_y = np.asarray(y_ValNoPain + y_ValPain)
 #    val_x, val_y = sklearn.utils.shuffle(val_x, val_y)
     
@@ -216,7 +222,7 @@ def readImages(pathData):
     train_x = train_x.astype('float32')/255.0
     val_x = val_x.astype('float32')/255.0
     
-    return test_x, test_x_Landmarks, test_y, train_x, train_x_Landmarks, train_y, val_x, val_x_Landmarks, val_y
+    return test_x, test_y, train_x, train_y, val_x, val_y
 
 def find_files(base, pattern):
     '''Return list of files matching pattern in base folder.'''
@@ -270,7 +276,7 @@ def buildModel(pathBase):
 #    
     # fully connected layer
     model.add(keras.layers.Dense(1024, activation='relu'))
-#    model.add(keras.layers.Dense(1024, activation='relu'))
+    model.add(keras.layers.Dense(1024, activation='relu'))
 #    model.add(keras.layers.Dense(1024, activation='relu'))
 #    
     # dropout
@@ -297,9 +303,9 @@ def buildModel(pathBase):
 #        print("Resumed model's weights from {}".format(savedModelFiles[-1]))
 #        # load weights
 #        model.load_weights(os.path.join(pathBase, savedModelFiles[-1]))
-    model.summary()            
+#    model.summary()            
     # multiple GPUs
-    model = multi_gpu_model(model, gpus=16)
+#    model = multi_gpu_model(model, gpus=16)
     
     # compile
     model.compile(optimizer=keras.optimizers.Adam(lr=0.0001), 
@@ -401,9 +407,9 @@ def buildModel(pathBase):
     
 def RandomForest(model,train_x, train_y, test_x, test_y):
 #    keras.backend.clear_session()
-#    model = load_model('Model_34.hdf5')
-#    model.summary()
-    layer_name = 'dense_2'
+#    model = load_model('/data/CAP5627/Group2/Project2/Model_45.hdf5')
+##    model.summary()
+    layer_name = 'dense_3'
     extract = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
     features = extract.predict(train_x)
 #    extract = []
@@ -440,48 +446,61 @@ def RandomForest(model,train_x, train_y, test_x, test_y):
     predict_y = clf.predict(extract.predict(test_x))
 #    testing_data = np.concatenate((extract.predict(test_x), test_x_Landmarks), axis=1)
 #    predict_y = clf.predict(testing_data)
-    acc = sklearn.metrics.accuracy_score(test_y, predict_y)
+
+#     confusion matrix, classification accuracy, precision, recall, and binary F1 score
     conf_mat = confusion_matrix(test_y, predict_y)
-    print('ACC: {}\nConfusion matrix (RF):\n{}'.format(acc, conf_mat))
+    acc = sklearn.metrics.accuracy_score(test_y, predict_y)
+    precision = sklearn.metrics.precision_score(test_y, predict_y)
+    recall = sklearn.metrics.recall_score(test_y, predict_y)
+    f1_score = sklearn.metrics.f1_score(test_y, predict_y)
+    
+    print('Confusion matrix (RF):\n{}\nClassification accuracy:{}\nPrecision:\t\t{}\nRecall:\t\t\t{}\nBinary F1 score: \t{}'.format(
+            conf_mat, 
+            acc,
+            precision,
+            recall,
+            f1_score
+            ))
     
 if __name__ == "__main__":
-    pathBase = 'pain_classification/'
+#    pathBase = 'pain_classification/'
+    pathBase = '/data/scanavan1/AffectiveComputing/Project2/pain_classification/'
     
-    print('Image reading started at {}'.format(str(datetime.datetime.now())))
-#    test_x, test_y, train_x, train_y, val_x, val_y 
-    test_x, test_x_Landmarks, test_y, train_x, train_x_Landmarks, train_y, val_x, val_x_Landmarks, val_y = readImages(pathBase)
-    print('Image reading finished at {}'.format(str(datetime.datetime.now())))
+#    print('Image reading started at {}'.format(str(datetime.datetime.now())))
+    test_x, test_y, train_x, train_y, val_x, val_y = readImages(pathBase)
+#    test_x, test_x_Landmarks, test_y, train_x, train_x_Landmarks, train_y, val_x, val_x_Landmarks, val_y = readImages(pathBase)
+#    print('Image reading finished at {}'.format(str(datetime.datetime.now())))
 
-    print('Class balance started at {}'.format(str(datetime.datetime.now())))
-    unique, counts = np.unique(test_y, return_counts=True)
-    print('test_y: {}'.format(dict(zip(unique, counts))))
-    unique, counts = np.unique(train_y, return_counts=True)
-    print('train_y: {}'.format(dict(zip(unique, counts))))
-    unique, counts = np.unique(val_y, return_counts=True)
-    print('val_y: {}'.format(dict(zip(unique, counts))))
-    print('Class balance finished at {}'.format(str(datetime.datetime.now())))
+#    print('Class balance started at {}'.format(str(datetime.datetime.now())))
+#    unique, counts = np.unique(test_y, return_counts=True)
+#    print('test_y: {}'.format(dict(zip(unique, counts))))
+#    unique, counts = np.unique(train_y, return_counts=True)
+#    print('train_y: {}'.format(dict(zip(unique, counts))))
+#    unique, counts = np.unique(val_y, return_counts=True)
+#    print('val_y: {}'.format(dict(zip(unique, counts))))
+#    print('Class balance finished at {}'.format(str(datetime.datetime.now())))
 
-    print('Model building started at {}'.format(str(datetime.datetime.now())))
+#    print('Model building started at {}'.format(str(datetime.datetime.now())))
     keras.backend.clear_session()
     model = buildModel(pathBase)
-    print('Model building finished at {}'.format(str(datetime.datetime.now())))
+#    print('Model building finished at {}'.format(str(datetime.datetime.now())))
     
-    print('Model evaluation started at {}'.format(str(datetime.datetime.now())))
+#    print('Model evaluation started at {}'.format(str(datetime.datetime.now())))
     # fit model to data
     time = strftime("%Y-%m-%d--%H-%M-%S", gmtime())
 #    checkpoint = ModelCheckpoint('{0}{1}_{{epoch:02d}}-{{val_acc:.2f}}.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-    checkpoint = ModelCheckpoint('Model_60.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+    checkpoint = ModelCheckpoint('model.hdf5'.format(pathBase, time),monitor='val_acc', verbose=1, save_best_only=True, mode='max')
     earlyStop = EarlyStopping('val_acc',0.001,25)
     callbacks_list = [checkpoint, earlyStop]
 #    callbacks_list = [earlyStop]
-    model.fit(x=train_x, y=train_y, batch_size=64, epochs=100, verbose=2, 
+    model.fit(x=train_x, y=train_y, batch_size=1, epochs=100, verbose=2, 
               callbacks=callbacks_list,
               validation_data=(val_x, val_y),
               initial_epoch=0)
-    print(model.evaluate(test_x, test_y))
-    test_y_prob = model.predict(test_x)
+#    print(model.evaluate(test_x, test_y))
+#    test_y_prob = model.predict(test_x)
 #    test_y_pred = np.round(test_y_prob)
-    test_y_pred = np.argmax(test_y_prob, axis=-1)
-    print('Confusion matrix (CNN):\n{}'.format(confusion_matrix(test_y, test_y_pred)))
+#    test_y_pred = np.argmax(test_y_prob, axis=-1)
+#    print('Confusion matrix (CNN):\n{}'.format(confusion_matrix(test_y, test_y_pred)))
     RandomForest(model,train_x,train_y,test_x,test_y)
-    print('Model evaluation finished at {}'.format(str(datetime.datetime.now())))
+#    print('Model evaluation finished at {}'.format(str(datetime.datetime.now())))
